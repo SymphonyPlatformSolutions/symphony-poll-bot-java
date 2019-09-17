@@ -2,10 +2,11 @@ package com.symphony.ps.pollbot;
 
 import clients.SymBotClient;
 import com.symphony.ps.pollbot.data.DataProvider;
-import com.symphony.ps.pollbot.listeners.ElementsListenerImpl;
-import com.symphony.ps.pollbot.listeners.IMListenerImpl;
+import com.symphony.ps.pollbot.services.ElementsListenerImpl;
+import com.symphony.ps.pollbot.services.IMListenerImpl;
 import com.symphony.ps.pollbot.model.PollBotConfig;
 import lombok.Getter;
+import model.OutboundMessage;
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
@@ -33,5 +34,9 @@ public class PollBot {
             new IMListenerImpl(),
             new ElementsListenerImpl()
         );
+    }
+
+    public static void sendMessage(String streamId, String message) {
+        botClient.getMessagesClient().sendMessage(streamId, new OutboundMessage(message));
     }
 }

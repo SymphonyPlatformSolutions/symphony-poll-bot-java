@@ -5,11 +5,12 @@ import java.util.List;
 import lombok.Builder;
 import lombok.Data;
 import model.StreamTypes;
+import org.bson.types.ObjectId;
 
 @Data
 @Builder
 public class Poll {
-    private long pollId;
+    private ObjectId id;
     private Instant created;
     private Instant ended;
     private long creator;
