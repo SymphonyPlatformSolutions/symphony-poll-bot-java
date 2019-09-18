@@ -1,12 +1,18 @@
 package com.symphony.ps.pollbot.model;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.bson.types.ObjectId;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class PollVote {
-    private ObjectId voteId;
+    private ObjectId id;
     private ObjectId pollId;
-    private ObjectId answerId;
+    private String answer;
     private long userId;
 }
