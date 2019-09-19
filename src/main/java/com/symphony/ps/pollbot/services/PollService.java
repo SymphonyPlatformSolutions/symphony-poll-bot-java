@@ -14,8 +14,8 @@ public class PollService {
             .addHeader(6, "Answers");
 
         for (int i=1; i <= options; i++) {
-            boolean required = options <= 2;
-            formBuilder = formBuilder.addTextField("option" + i, "", "Option " + i, required, false, 1, 50);
+            boolean required = i <= 2;
+            formBuilder = formBuilder.addTextField("option" + i, "", "Option " + i, required);
             if (i % 2 == 0 && i != options) {
                 formBuilder = formBuilder.addLineBreak();
             }

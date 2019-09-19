@@ -7,6 +7,8 @@ import com.symphony.ps.pollbot.model.Poll;
 import com.symphony.ps.pollbot.model.PollParticipant;
 import com.symphony.ps.pollbot.model.PollVote;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -52,10 +54,13 @@ public class ElementsListenerImpl implements ElementsListener {
         log.info("New poll by {} creation in progress: {}", initiator.getDisplayName(), formValues.toString());
 
         // Collate options
-        List<String> answers = formValues.entrySet().stream()
+        Map<String, String> answersMap = new HashMap<>();
+        formValues.entrySet().stream()
             .filter(k -> k.getKey().startsWith("option"))
-            .map(entry -> entry.getValue().toString())
-            .collect(Collectors.toList());
+            .map(entry -> entry.getValue().toString().trim())
+            .filter(answer -> !answer.isEmpty())
+            .forEach(answer -> answersMap.putIfAbsent(answer.toLowerCase(), answer));
+        List<String> answers = new ArrayList<>(answersMap.values());
 
         // Obtain IM stream IDs if audience is specified
         List<PollParticipant> participants = null;
