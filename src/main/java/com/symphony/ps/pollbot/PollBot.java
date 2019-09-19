@@ -5,6 +5,7 @@ import com.symphony.ps.pollbot.data.DataProvider;
 import com.symphony.ps.pollbot.model.PollBotConfig;
 import com.symphony.ps.pollbot.services.ElementsListenerImpl;
 import com.symphony.ps.pollbot.services.IMListenerImpl;
+import com.symphony.ps.pollbot.services.RoomListenerImpl;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import model.OutboundMessage;
@@ -34,6 +35,7 @@ public class PollBot {
         // Bot listeners
         botClient.getDatafeedEventsService().addListeners(
             new IMListenerImpl(),
+            new RoomListenerImpl(),
             new ElementsListenerImpl()
         );
 

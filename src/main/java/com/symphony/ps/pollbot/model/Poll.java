@@ -6,7 +6,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import model.StreamTypes;
 import org.bson.types.ObjectId;
 
 @Data
@@ -18,7 +17,7 @@ public class Poll {
     private Instant created;
     private Instant ended;
     private long creator;
-    private StreamTypes type;
+    private String streamId;
     private String questionText;
     private List<PollParticipant> participants;
     private List<String> answers;

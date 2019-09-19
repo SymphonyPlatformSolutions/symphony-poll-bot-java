@@ -9,7 +9,8 @@ import com.mongodb.client.MongoDatabase;
 import com.symphony.ps.pollbot.model.Poll;
 import com.symphony.ps.pollbot.model.PollVote;
 import java.time.Instant;
-import java.util.Collection;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.codecs.configuration.CodecRegistry;
@@ -68,6 +69,21 @@ public class DataProvider {
 
     public Poll getPoll(String id) {
         return pollCollection.find(eq("_id", new ObjectId(id))).first();
+    }
+
+    public Poll getPoll(long userId) {
+        return pollCollection.find(
+            and(
+                eq("creator", userId),
+                eq("ended", null)
+            )
+        ).first();
+    }
+
+    public List<PollVote> getVotes(ObjectId pollId) {
+        return voteCollection.find(
+            eq("pollId", pollId)
+        ).into(new ArrayList<>());
     }
 
     public void createVote(PollVote vote) {
