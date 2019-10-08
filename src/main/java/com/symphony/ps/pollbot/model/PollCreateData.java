@@ -6,7 +6,7 @@ import lombok.Data;
 
 @Data
 @Builder
-public class PollCreateData {
+public class PollCreateData extends PollData {
     private int count;
     private List<Integer> timeLimits;
     private boolean showPersonSelector;

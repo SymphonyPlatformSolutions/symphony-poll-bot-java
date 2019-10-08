@@ -6,7 +6,7 @@ import lombok.Data;
 
 @Data
 @Builder
-public class PollBlastData {
+public class PollBlastData extends PollData {
     private String id;
     private int timeLimit;
     private String question;
