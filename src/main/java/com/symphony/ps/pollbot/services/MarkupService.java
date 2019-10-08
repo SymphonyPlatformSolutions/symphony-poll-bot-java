@@ -1,54 +1,67 @@
 package com.symphony.ps.pollbot.services;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.symphony.ps.pollbot.model.NewPollData;
+import com.symphony.ps.pollbot.model.NewPollObject;
 import com.symphony.ps.pollbot.model.Poll;
-import java.util.Collections;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 import model.FormButtonType;
 import utils.FormBuilder;
 
+@Slf4j
 class MarkupService {
-    static String getCreatePollML(boolean isLimitedAudience, int options, List<Integer> timeLimits) {
-        FormBuilder formBuilder = new FormBuilder("poll-create-form")
-            .addHeader(6, "Question")
-            .addTextArea("question", "", "Enter your poll question..", true)
-            .addHeader(6, "Answers");
+    public static String newPollTemplate;
+    private static ObjectMapper mapper = new ObjectMapper();
 
-        for (int i=1; i <= options; i++) {
-            boolean required = i <= 2;
-            formBuilder = formBuilder.addTextField("option" + i, "", "Option " + i, required);
-            if (i % 2 == 0 && i != options) {
-                formBuilder = formBuilder.addLineBreak();
-            }
+    static {
+/*        try {
+            newPollTemplate = mapper.readValue(MarkupService.class.getResourceAsStream("/new-poll.ftl"), String.class);
+        } catch (IOException e) {
+            log.error("Unable to load new poll template", e);
+        }*/
+        try {
+            newPollTemplate = new String(Files.readAllBytes(Paths.get(MarkupService.class.getResource("/new-poll.ftl").toURI())));
+        } catch (IOException | URISyntaxException e) {
+            log.error("Unable to load new poll template", e);
         }
+    }
 
-        if (isLimitedAudience) {
-            formBuilder = formBuilder
-                .addHeader(6, "Audience")
-                .addPersonSelector("audience", "Select audience..", true);
+    static String getNewPollData(boolean showPersonSelector, int count, List<Integer> timeLimits) {
+        NewPollData data = NewPollData.builder()
+            .count(count)
+            .showPersonSelector(showPersonSelector)
+            .timeLimits(timeLimits)
+            .build();
+        NewPollObject newPollObject = NewPollObject.builder().newPoll(data).build();
+        try {
+            return mapper.writeValueAsString(newPollObject);
+        } catch (JsonProcessingException e) {
+            log.error("Unable to write new poll data object as string", e);
+            return null;
         }
-
-        formBuilder = formBuilder.addHeader(6, "Time Limit");
-        Collections.sort(timeLimits);
-        for (int i=0; i < timeLimits.size(); i++) {
-            String timeLimit = timeLimits.get(i) + "";
-            String display = timeLimit.equals("0") ? "None" : timeLimit + " minutes";
-            formBuilder = formBuilder.addRadioButton("timeLimit", display, timeLimit, i == 0);
-        }
-
-        return formBuilder.addButton("createPoll", "Create Poll", FormButtonType.ACTION)
-            .formatElement();
     }
 
     static String getBlastPollML(Poll poll) {
         FormBuilder formBuilder = FormBuilder.builder("poll-blast-form-" + poll.getId())
-            .addHeader(4, String.format("Poll by <mention uid=\"%d\" />", poll.getCreator()))
-            .addHeader(5, poll.getQuestionText());
+            .addHeader(6, String.format("Poll by <mention uid=\"%d\" />", poll.getCreator()))
+            .addHeader(6, poll.getQuestionText());
         int index = 0;
         for (String answer : poll.getAnswers()) {
             formBuilder.addButton(
                 "option-" + index++, answer, FormButtonType.ACTION
             );
         }
+
+        String timeLimitNote = poll.getTimeLimit() == 0 ? "does not have a time limit"
+            : String.format("will end in %d minutes", poll.getTimeLimit());
+        formBuilder.addDiv(String.format("<i>This poll %s</i>", timeLimitNote));
+
         return formBuilder.formatElement();
     }
 }

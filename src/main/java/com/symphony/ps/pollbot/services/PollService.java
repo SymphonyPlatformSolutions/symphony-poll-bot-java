@@ -51,15 +51,21 @@ class PollService {
 
         switch (msgParts[0]) {
             case "/poll":
-                log.info("Create new poll via {} requested by {}", streamType, msg.getUser().getDisplayName());
-                String pollML = MarkupService.getCreatePollML(streamType == StreamTypes.IM, options, timeLimits);
-                PollBot.sendMessage(msg.getStream().getStreamId(), pollML);
+                log.info("Get new poll form via {} requested by {}", streamType, msg.getUser().getDisplayName());
+
+                String pollML = MarkupService.newPollTemplate;
+                String data = MarkupService.getNewPollData(streamType == StreamTypes.IM, options, timeLimits);
+                PollBot.sendMessage(msg.getStream().getStreamId(), pollML, data);
+
+                log.info("New poll form sent to {} stream {}", streamType, msg.getStream().getStreamId());
                 break;
 
             case "/endpoll":
+                log.info("End poll requested by {}", msg.getUser().getDisplayName());
                 Poll poll = PollBot.getDataProvider().getPoll(msg.getUser().getUserId());
                 if (poll == null) {
                     PollBot.sendMessage(msg.getStream().getStreamId(), "You have no active poll to end");
+                    log.info("User {} has no active poll to end", msg.getUser().getDisplayName());
                     return;
                 }
                 handleEndPoll(poll);
@@ -73,8 +79,10 @@ class PollService {
     static void handleCreatePoll(User initiator, SymphonyElementsAction action) {
         // Reject poll creation if an active one exists
         if (PollBot.getDataProvider().hasActivePoll(initiator.getUserId())) {
-            String msg = "You already have an existing active poll. Use <b>/endpoll</b> to end it before starting a new one";
+            String msg = String.format("<mention uid=\"%d\"/> You already have an existing active poll." +
+                "Use <b>/endpoll</b> to end it before starting a new one", initiator.getUserId());
             PollBot.sendMessage(action.getStreamId(), msg);
+            log.info("User {} has an existing active poll. Refusing to create a new one.", initiator.getDisplayName());
             return;
         }
 
@@ -90,6 +98,14 @@ class PollService {
             .forEach(answer -> answersMap.putIfAbsent(answer.toLowerCase(), answer));
         List<String> answers = new ArrayList<>(answersMap.values());
 
+        if (answers.size() < 2) {
+            String rejectMsg = String.format("<mention uid=\"%d\"/> Your poll contains less than 2 valid options",
+                initiator.getUserId());
+            PollBot.sendMessage(action.getStreamId(), rejectMsg);
+            log.info("Create poll by {} rejected as there are less than 2 valid options", initiator.getDisplayName());
+            return;
+        }
+
         // Obtain IM stream IDs if audience is specified
         List<PollParticipant> participants = null;
         if (formValues.get("audience") != null) {
@@ -102,10 +118,13 @@ class PollService {
                 .collect(Collectors.toList());
         }
 
+        int timeLimit = Integer.parseInt(formValues.get("timeLimit").toString());
+
         // Create poll object and persist to database
         Poll poll = Poll.builder()
             .creator(initiator.getUserId())
             .created(Instant.now())
+            .timeLimit(timeLimit)
             .questionText(formValues.get("question").toString())
             .streamId(action.getStreamId())
             .participants(participants)
@@ -115,7 +134,7 @@ class PollService {
 
         // Construct poll form and blast to audience
         String blastPollML = MarkupService.getBlastPollML(poll);
-        if (formValues.get("audience") != null) {
+        if (participants != null) {
             participants.forEach(
                 participant -> PollBot.sendMessage(participant.getImStreamId(), blastPollML)
             );
@@ -123,8 +142,18 @@ class PollService {
             PollBot.sendMessage(action.getStreamId(), blastPollML);
         }
 
-        PollBot.getBotClient().getMessagesClient().sendMessage(
-            action.getStreamId(), new OutboundMessage("Your poll has been created"));
+        // Start timer
+        if (timeLimit > 0) {
+            Timer timer = new Timer("PollTimer" + poll.getId());
+            timer.schedule(new TimerTask() {
+                public void run() {
+                    handleEndPoll(poll);
+                }
+            }, 60000L * timeLimit);
+        }
+
+        PollBot.getBotClient().getMessagesClient().sendMessage(action.getStreamId(),
+            new OutboundMessage(String.format("<mention uid=\"%d\"/> Your poll has been created", initiator.getUserId())));
         log.info("New poll by {} creation complete", initiator.getDisplayName());
     }
 
@@ -136,11 +165,17 @@ class PollService {
         Poll poll = PollBot.getDataProvider().getPoll(pollId);
 
         if (poll == null) {
-            PollBot.sendMessage(action.getStreamId(), "Unable to find matching poll to submit vote for");
+            PollBot.sendMessage(action.getStreamId(), String.format(
+                "<mention uid=\"%d\"/> You have submitted a vote for an invalid poll", initiator.getUserId()));
+            log.info("Invalid vote cast by {} on {} stream {}",
+                initiator.getDisplayName(), action.getStreamType(), action.getStreamId());
             return;
         }
         if (poll.getEnded() != null) {
-            PollBot.sendMessage(action.getStreamId(), "This poll is no longer active for voting");
+            PollBot.sendMessage(action.getStreamId(), String.format(
+                "<mention uid=\"%d\"/> This poll is no longer active for voting", initiator.getUserId()));
+            log.info("Vote cast on expired poll by {} on {} stream {}",
+                initiator.getDisplayName(), action.getStreamType(), action.getStreamId());
             return;
         }
         String answer = poll.getAnswers().get(answerIndex);
@@ -149,6 +184,7 @@ class PollService {
         if (PollBot.getDataProvider().hasVoted(initiator.getUserId(), pollId)) {
             PollBot.getDataProvider().changeVote(initiator.getUserId(), pollId, answer);
             response = "Your vote has been updated";
+            log.info("Vote updated to [{}] on poll {} by {}", answer, poll.getId(), initiator.getDisplayName());
         } else {
             PollVote vote = PollVote.builder()
                 .pollId(new ObjectId(pollId))
@@ -157,19 +193,20 @@ class PollService {
                 .build();
             PollBot.getDataProvider().createVote(vote);
             response = "Thanks for voting";
+            log.info("New vote [{}] cast on poll {} by {}", answer, poll.getId(), initiator.getDisplayName());
         }
 
         PollBot.sendMessage(action.getStreamId(),
-            String.format("%s, <mention uid=\"%d\" />!", response, initiator.getUserId()));
-        log.info("Vote [{}] for poll {} by {} captured", answer, pollId, initiator.getDisplayName());
+            String.format("<mention uid=\"%d\"/> %s!", initiator.getUserId(), response));
     }
 
-    static void handleEndPoll(Poll poll) {
+    private static void handleEndPoll(Poll poll) {
         List<PollVote> votes = PollBot.getDataProvider().getVotes(poll.getId());
         String response;
 
         if (votes.isEmpty()) {
             response = "Poll ended but with no results to show";
+            log.info("Poll {} ended with no votes", poll.getId());
         } else {
             // Aggregate vote results
             Map<String, Long> voteResultsMap = votes.stream()
@@ -199,6 +236,8 @@ class PollService {
                 "<h5>Results for Poll: %s</h5><table><tr><th>Option</th><th style=\"text-align:right\">Votes</th><th></th></tr>%s</table>",
                 poll.getQuestionText(), resultsRowsML
             );
+
+            log.info("Poll {} ended with results {}", poll.getId(), voteResultsMap.toString());
         }
 
         PollBot.getDataProvider().endPoll(poll.getCreator());

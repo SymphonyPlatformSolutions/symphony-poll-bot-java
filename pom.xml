@@ -30,7 +30,7 @@
         <dependency>
             <groupId>com.symphony.platformsolutions</groupId>
             <artifactId>symphony-api-client-java</artifactId>
-            <version>1.0.43-SNAPSHOT</version>
+            <version>1.0.43</version>
         </dependency>
         <dependency>
             <groupId>org.mongodb</groupId>

@@ -16,6 +16,7 @@ public class Poll {
     private ObjectId id;
     private Instant created;
     private Instant ended;
+    private int timeLimit;
     private long creator;
     private String streamId;
     private String questionText;

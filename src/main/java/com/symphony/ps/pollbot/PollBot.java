@@ -26,23 +26,31 @@ public class PollBot {
         root.setLevel(Level.INFO);
         LogManager.getLogger("org.mongodb.driver").setLevel(Level.ERROR);
 
-        // Bot init
-        botClient = SymBotClient.initBotRsa("config.json", PollBotConfig.class);
+        try {
+            // Bot init
+            botClient = SymBotClient.initBotRsa("config.json", PollBotConfig.class);
 
-        // Set up MongoDB
-        dataProvider = new DataProvider(botClient.getConfig(PollBotConfig.class).getMongoUri());
+            // Set up MongoDB
+            dataProvider = new DataProvider(botClient.getConfig(PollBotConfig.class).getMongoUri());
 
-        // Bot listeners
-        botClient.getDatafeedEventsService().addListeners(
-            new IMListenerImpl(),
-            new RoomListenerImpl(),
-            new ElementsListenerImpl()
-        );
+            // Bot listeners
+            botClient.getDatafeedEventsService().addListeners(
+                new IMListenerImpl(),
+                new RoomListenerImpl(),
+                new ElementsListenerImpl()
+            );
 
-        log.info("Bot is ready.");
+            log.info("Bot is ready.");
+        } catch (Exception e) {
+            log.error("Error", e);
+        }
     }
 
     public static void sendMessage(String streamId, String message) {
         botClient.getMessagesClient().sendMessage(streamId, new OutboundMessage(message));
+    }
+
+    public static void sendMessage(String streamId, String message, String data) {
+        botClient.getMessagesClient().sendMessage(streamId, new OutboundMessage(message, data));
     }
 }
