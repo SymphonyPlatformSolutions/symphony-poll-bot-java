@@ -2,7 +2,9 @@
     <div class='entity' data-entity-id='poll'>
         <div style='display:flex;padding-top:8px'>
             <div><img src="https://symphony.com/wp-content/uploads/2019/08/favicon.png" style='height:20px' /></div>
-            <div style='padding-top:1px;padding-left:5px;'><b>Poll: ${entity["poll"].question}</b> by <mention uid="${entity["poll"].creatorId}" /></div>
+            <div style='padding-top:1px;padding-left:5px;'>
+                <b>Poll: ${entity["poll"].question}</b> by <mention uid="${entity["poll"].creatorId}" />
+            </div>
         </div>
 
         <div style='height:2px;background:#0098ff;margin-top:10px;margin-bottom:10px'> </div>

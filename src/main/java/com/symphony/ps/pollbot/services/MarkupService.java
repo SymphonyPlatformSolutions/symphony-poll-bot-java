@@ -19,7 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 class MarkupService {
     private static ObjectMapper mapper = new ObjectMapper();
-    static String pollCreateTemplate, pollBlastTemplate;
+    static String pollCreateTemplate, pollBlastTemplate, pollResultsTemplate;
 
     static {
         try {
@@ -28,6 +28,9 @@ class MarkupService {
 
             Path pollBlastPath = Paths.get(MarkupService.class.getResource("/poll-blast-form.ftl").toURI());
             pollBlastTemplate = new String(Files.readAllBytes(pollBlastPath));
+
+            Path pollResultsPath = Paths.get(MarkupService.class.getResource("/poll-results.ftl").toURI());
+            pollResultsTemplate = new String(Files.readAllBytes(pollResultsPath));
         } catch (IOException | URISyntaxException e) {
             log.error("Unable to load templates", e);
         }
@@ -39,13 +42,7 @@ class MarkupService {
             .showPersonSelector(showPersonSelector)
             .timeLimits(timeLimits)
             .build();
-
-        try {
-            return mapper.writeValueAsString(wrapData(pollCreateData));
-        } catch (JsonProcessingException e) {
-            log.error("Unable to write poll create data object as string", e);
-            return null;
-        }
+        return wrapData(pollCreateData);
     }
 
     static String getPollBlastData(Poll poll) {
@@ -56,18 +53,18 @@ class MarkupService {
             .timeLimit(poll.getTimeLimit())
             .creatorId(poll.getCreator())
             .build();
-
-        try {
-            return mapper.writeValueAsString(wrapData(pollBlastData));
-        } catch (JsonProcessingException e) {
-            log.error("Unable to write poll blast data object as string", e);
-            return null;
-        }
+        return wrapData(pollBlastData);
     }
 
-    private static Map<String, PollData> wrapData(PollData data) {
+    static String wrapData(PollData data) {
         Map<String, PollData> map = new HashMap<>();
         map.put("poll", data);
-        return map;
+
+        try {
+            return mapper.writeValueAsString(map);
+        } catch (JsonProcessingException e) {
+            log.error("Unable to wrap data object", e);
+            return null;
+        }
     }
 }

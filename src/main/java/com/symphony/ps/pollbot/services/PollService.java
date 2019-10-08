@@ -1,9 +1,7 @@
 package com.symphony.ps.pollbot.services;
 
 import com.symphony.ps.pollbot.PollBot;
-import com.symphony.ps.pollbot.model.Poll;
-import com.symphony.ps.pollbot.model.PollParticipant;
-import com.symphony.ps.pollbot.model.PollVote;
+import com.symphony.ps.pollbot.model.*;
 import java.time.Instant;
 import java.util.*;
 import java.util.function.Function;
@@ -141,7 +139,7 @@ class PollService {
                 participant -> PollBot.sendMessage(participant.getImStreamId(), blastPollML, blastPollData)
             );
         } else {
-            PollBot.sendMessage(action.getStreamId(), blastPollML);
+            PollBot.sendMessage(action.getStreamId(), blastPollML, blastPollData);
         }
 
         // Start timer
@@ -206,7 +204,7 @@ class PollService {
 
     private static void handleEndPoll(Poll poll) {
         List<PollVote> votes = PollBot.getDataProvider().getVotes(poll.getId());
-        String response;
+        String response, data = null;
 
         if (votes.isEmpty()) {
             response = String.format("<mention uid=\"%d\" /> Poll ended but with no results to show", poll.getCreator());
@@ -227,24 +225,25 @@ class PollService {
 
             // Construct results table
             long maxVal = Collections.max(voteResultsMap.values());
-            String resultsRowTemplate = "<tr><td>%s</td><td style=\"text-align:right\">%d</td><td><div style='background-color:#29b6f6;width:%dpx'> </div></td></tr>";
-            String resultsRowsML = voteResultsMap.entrySet().stream().map(e -> {
+            List<PollResult> pollResults = voteResultsMap.entrySet().stream().map(e -> {
                 int width = (int) (((float) e.getValue() / maxVal) * 200);
                 if (width == 0 && e.getValue() > 0) {
                     width = 1;
                 }
-                return String.format(resultsRowTemplate, e.getKey(), e.getValue(), width);
-            }).collect(Collectors.joining(""));
+                return PollResult.builder().answer(e.getKey()).count(e.getValue()).width(width).build();
+            }).collect(Collectors.toList());
 
-            response = String.format(
-                "<h5>Results for Poll: %s</h5><table><tr><th>Option</th><th style=\"text-align:right\">Votes</th><th></th></tr>%s</table>",
-                poll.getQuestionText(), resultsRowsML
-            );
+            response = MarkupService.pollResultsTemplate;
+            data = MarkupService.wrapData(PollResultsData.builder()
+                .creatorId(poll.getCreator())
+                .question(poll.getQuestionText())
+                .results(pollResults)
+                .build());
 
             log.info("Poll {} ended with results {}", poll.getId(), voteResultsMap.toString());
         }
 
         PollBot.getDataProvider().endPoll(poll.getCreator());
-        PollBot.sendMessage(poll.getStreamId(), response);
+        PollBot.sendMessage(poll.getStreamId(), response, data);
     }
 }
