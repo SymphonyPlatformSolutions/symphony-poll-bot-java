@@ -40,6 +40,8 @@
                 </#if>
                 <#if timeLimit==0>
                     <#assign label="None">
+                <#elseif timeLimit==1>
+                    <#assign label="1 minute">
                 <#else>
                     <#assign label="${timeLimit} minutes">
                 </#if>

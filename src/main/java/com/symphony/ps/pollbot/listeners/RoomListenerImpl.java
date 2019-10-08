@@ -1,5 +1,6 @@
-package com.symphony.ps.pollbot.services;
+package com.symphony.ps.pollbot.listeners;
 
+import com.symphony.ps.pollbot.services.PollService;
 import listeners.RoomListener;
 import model.InboundMessage;
 import model.Stream;

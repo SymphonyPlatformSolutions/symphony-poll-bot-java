@@ -1,11 +1,11 @@
 package com.symphony.ps.pollbot;
 
 import clients.SymBotClient;
-import com.symphony.ps.pollbot.data.DataProvider;
+import com.symphony.ps.pollbot.listeners.ElementsListenerImpl;
+import com.symphony.ps.pollbot.listeners.IMListenerImpl;
+import com.symphony.ps.pollbot.listeners.RoomListenerImpl;
 import com.symphony.ps.pollbot.model.PollBotConfig;
-import com.symphony.ps.pollbot.services.ElementsListenerImpl;
-import com.symphony.ps.pollbot.services.IMListenerImpl;
-import com.symphony.ps.pollbot.services.RoomListenerImpl;
+import com.symphony.ps.pollbot.services.DataService;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import model.OutboundMessage;
@@ -16,7 +16,7 @@ public class PollBot {
     @Getter
     private static SymBotClient botClient;
     @Getter
-    private static DataProvider dataProvider;
+    private static DataService dataService;
 
     public static void main(String[] args) {
         // Logging
@@ -31,7 +31,7 @@ public class PollBot {
             botClient = SymBotClient.initBotRsa("config.json", PollBotConfig.class);
 
             // Set up MongoDB
-            dataProvider = new DataProvider(botClient.getConfig(PollBotConfig.class).getMongoUri());
+            dataService = new DataService(botClient.getConfig(PollBotConfig.class).getMongoUri());
 
             // Bot listeners
             botClient.getDatafeedEventsService().addListeners(

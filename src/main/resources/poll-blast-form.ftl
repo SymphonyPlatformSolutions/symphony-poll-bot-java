@@ -19,7 +19,7 @@
             <#if entity["poll"].timeLimit == 0>
                 does not have a time limit
             <#else>
-                will end in ${entity["poll"].timeLimit} minutes
+                will end in ${entity["poll"].timeLimit} minute<#if entity["poll"].timeLimit gt 1>s</#if>
             </#if>
         </i>
     </div>

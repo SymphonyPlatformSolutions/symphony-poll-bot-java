@@ -6,54 +6,47 @@ import com.symphony.ps.pollbot.model.Poll;
 import com.symphony.ps.pollbot.model.PollBlastData;
 import com.symphony.ps.pollbot.model.PollCreateData;
 import com.symphony.ps.pollbot.model.PollData;
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.net.URISyntaxException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 class MarkupService {
     private static ObjectMapper mapper = new ObjectMapper();
-    static String pollCreateTemplate, pollBlastTemplate, pollResultsTemplate;
+    static String pollCreateTemplate = loadTemplate("/poll-create-form.ftl");
+    static String pollBlastTemplate = loadTemplate("/poll-blast-form.ftl");
+    static String pollResultsTemplate = loadTemplate("/poll-results.ftl");
 
-    static {
-        try {
-            Path pollCreatePath = Paths.get(MarkupService.class.getResource("/poll-create-form.ftl").toURI());
-            pollCreateTemplate = new String(Files.readAllBytes(pollCreatePath));
-
-            Path pollBlastPath = Paths.get(MarkupService.class.getResource("/poll-blast-form.ftl").toURI());
-            pollBlastTemplate = new String(Files.readAllBytes(pollBlastPath));
-
-            Path pollResultsPath = Paths.get(MarkupService.class.getResource("/poll-results.ftl").toURI());
-            pollResultsTemplate = new String(Files.readAllBytes(pollResultsPath));
-        } catch (IOException | URISyntaxException e) {
-            log.error("Unable to load templates", e);
+    private static String loadTemplate(String fileName) {
+        InputStream stream = MarkupService.class.getResourceAsStream(fileName);
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+            return br.lines().collect(Collectors.joining(System.lineSeparator()));
+        }
+        catch (IOException e) {
+            log.error("Unable to load template for {}", fileName);
+            return null;
         }
     }
 
     static String getPollCreateData(boolean showPersonSelector, int count, List<Integer> timeLimits) {
-        PollCreateData pollCreateData = PollCreateData.builder()
-            .count(count)
-            .showPersonSelector(showPersonSelector)
-            .timeLimits(timeLimits)
-            .build();
-        return wrapData(pollCreateData);
+        return wrapData(new PollCreateData(count, timeLimits, showPersonSelector));
     }
 
     static String getPollBlastData(Poll poll) {
-        PollBlastData pollBlastData = PollBlastData.builder()
-            .id(poll.getId().toString())
-            .question(poll.getQuestionText())
-            .answers(poll.getAnswers())
-            .timeLimit(poll.getTimeLimit())
-            .creatorId(poll.getCreator())
-            .build();
-        return wrapData(pollBlastData);
+        return wrapData(new PollBlastData(
+            poll.getId().toString(),
+            poll.getTimeLimit(),
+            poll.getQuestionText(),
+            poll.getAnswers(),
+            poll.getCreator()
+        ));
     }
 
     static String wrapData(PollData data) {

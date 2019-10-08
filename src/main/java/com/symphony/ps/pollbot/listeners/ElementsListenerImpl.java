@@ -1,6 +1,7 @@
-package com.symphony.ps.pollbot.services;
+package com.symphony.ps.pollbot.listeners;
 
 import com.symphony.ps.pollbot.PollBot;
+import com.symphony.ps.pollbot.services.PollService;
 import listeners.ElementsListener;
 import lombok.extern.slf4j.Slf4j;
 import model.User;

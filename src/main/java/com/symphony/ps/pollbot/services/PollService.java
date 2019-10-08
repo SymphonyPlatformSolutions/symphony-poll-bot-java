@@ -4,6 +4,7 @@ import com.symphony.ps.pollbot.PollBot;
 import com.symphony.ps.pollbot.model.*;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -15,8 +16,13 @@ import model.events.SymphonyElementsAction;
 import org.bson.types.ObjectId;
 
 @Slf4j
-class PollService {
-    static void handleIncomingMessage(InboundMessage msg, StreamTypes streamType) {
+public class PollService {
+    private static final String helpML = "<ul>" +
+        "<li><b>/poll</b>: Get a standard create poll form</li>" +
+        "<li><b>/poll 4 0,5,15</b>: Get a create poll form with 4 options and time limits of None, 5 and 15 minutes</li>" +
+        "<li><b>/endpoll</b>: End your active poll</li></ul>";
+
+    public static void handleIncomingMessage(InboundMessage msg, StreamTypes streamType) {
         int options = 6;
         List<Integer> timeLimits = Arrays.asList(0, 2, 5);
 
@@ -32,9 +38,10 @@ class PollService {
                         PollBot.sendMessage(streamId, "Number of options must be between 2 and 10");
                         return;
                     }
-                } else if (pollConfig.matches("^\\d+(,\\d)+$")) {
+                } else if (pollConfig.matches("^\\d+(,\\d+)+$")) {
                     timeLimits = Arrays.stream(pollConfig.split(","))
                         .map(Integer::parseInt)
+                        .sorted()
                         .collect(Collectors.toList());
                     if (timeLimits.size() > 10) {
                         PollBot.sendMessage(streamId, "Number of time limits should be 10 or lower");
@@ -48,7 +55,16 @@ class PollService {
         }
 
         switch (msgParts[0]) {
+            case "/help":
+                PollBot.sendMessage(msg.getStream().getStreamId(), helpML);
+                break;
+
             case "/poll":
+            case "/createpoll":
+                // Reject poll creation if an active one exists
+                if (userHasActivePoll(msg.getUser(), msg.getStream().getStreamId())) {
+                    return;
+                }
                 log.info("Get new poll form via {} requested by {}", streamType, msg.getUser().getDisplayName());
 
                 String pollML = MarkupService.pollCreateTemplate;
@@ -60,7 +76,7 @@ class PollService {
 
             case "/endpoll":
                 log.info("End poll requested by {}", msg.getUser().getDisplayName());
-                Poll poll = PollBot.getDataProvider().getPoll(msg.getUser().getUserId());
+                Poll poll = PollBot.getDataService().getPoll(msg.getUser().getUserId());
                 if (poll == null) {
                     PollBot.sendMessage(msg.getStream().getStreamId(), "You have no active poll to end");
                     log.info("User {} has no active poll to end", msg.getUser().getDisplayName());
@@ -69,18 +85,52 @@ class PollService {
                 handleEndPoll(poll);
                 break;
 
+            case "/rigpoll":
+                Poll pollToRig = PollBot.getDataService().getPoll(msg.getUser().getUserId());
+                if (pollToRig == null) {
+                    PollBot.sendMessage(msg.getStream().getStreamId(), "You have no active poll to rig");
+                    log.info("User {} has no active poll to rig", msg.getUser().getDisplayName());
+                    return;
+                }
+
+                List<PollVote> votes = new ArrayList<>();
+                List<String> randomAnswers = new ArrayList<>(pollToRig.getAnswers());
+                Collections.shuffle(randomAnswers);
+                int answersSize = pollToRig.getAnswers().size();
+                int rigVolume = ThreadLocalRandom.current().nextInt(17, 77);
+                for (int i=0; i < answersSize; i++) {
+                    for (int r = 0; r < rigVolume; r++) {
+                        votes.add(PollVote.builder()
+                            .pollId(pollToRig.getId())
+                            .answer(randomAnswers.get(i))
+                            .build());
+                    }
+                    rigVolume += (Math.random() * 387) - (Math.random() * 27);
+                }
+                PollBot.getDataService().createVotes(votes);
+
+                PollBot.sendMessage(msg.getStream().getStreamId(), "Your active poll has been rigged");
+                log.info("User {} has rigged active poll", msg.getUser().getDisplayName());
+
             default:
         }
     }
 
+    private static boolean userHasActivePoll(User user, String streamId) {
+        if (PollBot.getDataService().hasActivePoll(user.getUserId())) {
+            String msg = String.format("<mention uid=\"%d\"/> You already have an existing active poll. " +
+                "Use <b>/endpoll</b> to end it before starting a new one", user.getUserId());
+            PollBot.sendMessage(streamId, msg);
+            log.info("User {} has an existing active poll. Refusing to create a new one.", user.getDisplayName());
+            return true;
+        }
+        return false;
+    }
+
     @SuppressWarnings("unchecked")
-    static void handleCreatePoll(User initiator, SymphonyElementsAction action) {
+    public static void handleCreatePoll(User initiator, SymphonyElementsAction action) {
         // Reject poll creation if an active one exists
-        if (PollBot.getDataProvider().hasActivePoll(initiator.getUserId())) {
-            String msg = String.format("<mention uid=\"%d\"/> You already have an existing active poll." +
-                "Use <b>/endpoll</b> to end it before starting a new one", initiator.getUserId());
-            PollBot.sendMessage(action.getStreamId(), msg);
-            log.info("User {} has an existing active poll. Refusing to create a new one.", initiator.getDisplayName());
+        if (userHasActivePoll(initiator, action.getStreamId())) {
             return;
         }
 
@@ -128,7 +178,7 @@ class PollService {
             .participants(participants)
             .answers(answers)
             .build();
-        PollBot.getDataProvider().createPoll(poll);
+        PollBot.getDataService().createPoll(poll);
 
         // Construct poll form and blast to audience
         String blastPollML = MarkupService.pollBlastTemplate;
@@ -143,28 +193,34 @@ class PollService {
         }
 
         // Start timer
+        String endPollByTimerNote = "";
         if (timeLimit > 0) {
             Timer timer = new Timer("PollTimer" + poll.getId());
             timer.schedule(new TimerTask() {
                 public void run() {
-                    if (PollBot.getDataProvider().getPoll(poll.getId()).getEnded() == null) {
+                    if (PollBot.getDataService().getPoll(poll.getId().toString()).getEnded() == null) {
                         handleEndPoll(poll);
                     }
                 }
             }, 60000L * timeLimit);
+
+            endPollByTimerNote = " or wait " + timeLimit + " minute" + (timeLimit > 1 ? "s" : "");
         }
 
         PollBot.getBotClient().getMessagesClient().sendMessage(action.getStreamId(),
-            new OutboundMessage(String.format("<mention uid=\"%d\"/> Your poll has been created", initiator.getUserId())));
+            new OutboundMessage(String.format(
+                "<mention uid=\"%d\"/> Your poll has been created. You can use <b>/endpoll</b>%s to end this poll.",
+                initiator.getUserId(), endPollByTimerNote
+            )));
         log.info("New poll by {} creation complete", initiator.getDisplayName());
     }
 
-    static void handleSubmitVote(User initiator, SymphonyElementsAction action) {
+    public static void handleSubmitVote(User initiator, SymphonyElementsAction action) {
         String answerIndexString = action.getFormValues().get("action").toString().replace("option-", "");
         int answerIndex = Integer.parseInt(answerIndexString);
 
         String pollId = action.getFormId().replace("poll-blast-form-", "");
-        Poll poll = PollBot.getDataProvider().getPoll(pollId);
+        Poll poll = PollBot.getDataService().getPoll(pollId);
 
         if (poll == null) {
             PollBot.sendMessage(action.getStreamId(), String.format(
@@ -183,8 +239,8 @@ class PollService {
         String answer = poll.getAnswers().get(answerIndex);
 
         String response;
-        if (PollBot.getDataProvider().hasVoted(initiator.getUserId(), pollId)) {
-            PollBot.getDataProvider().changeVote(initiator.getUserId(), pollId, answer);
+        if (PollBot.getDataService().hasVoted(initiator.getUserId(), pollId)) {
+            PollBot.getDataService().changeVote(initiator.getUserId(), pollId, answer);
             response = "Your vote has been updated";
             log.info("Vote updated to [{}] on poll {} by {}", answer, poll.getId(), initiator.getDisplayName());
         } else {
@@ -193,7 +249,7 @@ class PollService {
                 .answer(answer)
                 .userId(initiator.getUserId())
                 .build();
-            PollBot.getDataProvider().createVote(vote);
+            PollBot.getDataService().createVote(vote);
             response = "Thanks for voting";
             log.info("New vote [{}] cast on poll {} by {}", answer, poll.getId(), initiator.getDisplayName());
         }
@@ -203,7 +259,7 @@ class PollService {
     }
 
     private static void handleEndPoll(Poll poll) {
-        List<PollVote> votes = PollBot.getDataProvider().getVotes(poll.getId());
+        List<PollVote> votes = PollBot.getDataService().getVotes(poll.getId());
         String response, data = null;
 
         if (votes.isEmpty()) {
@@ -243,7 +299,7 @@ class PollService {
             log.info("Poll {} ended with results {}", poll.getId(), voteResultsMap.toString());
         }
 
-        PollBot.getDataProvider().endPoll(poll.getCreator());
+        PollBot.getDataService().endPoll(poll.getCreator());
         PollBot.sendMessage(poll.getStreamId(), response, data);
     }
 }

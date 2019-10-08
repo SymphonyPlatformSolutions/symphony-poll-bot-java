@@ -1,4 +1,4 @@
-package com.symphony.ps.pollbot.data;
+package com.symphony.ps.pollbot.services;
 
 import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
@@ -23,13 +23,13 @@ import static org.bson.codecs.configuration.CodecRegistries.fromProviders;
 import static org.bson.codecs.configuration.CodecRegistries.fromRegistries;
 
 @Slf4j
-public class DataProvider {
+public class DataService {
     @Getter
     MongoCollection<Poll> pollCollection;
     @Getter
     MongoCollection<PollVote> voteCollection;
 
-    public DataProvider(String url) {
+    public DataService(String url) {
         CodecRegistry registry = fromRegistries(
             MongoClientSettings.getDefaultCodecRegistry(),
             fromProviders(PojoCodecProvider.builder().automatic(true).build())
@@ -46,7 +46,7 @@ public class DataProvider {
         voteCollection = db.getCollection("vote", PollVote.class);
     }
 
-    public boolean hasActivePoll(long userId) {
+    boolean hasActivePoll(long userId) {
         return 1L == pollCollection.countDocuments(
             and(
                 eq("creator", userId),
@@ -55,27 +55,23 @@ public class DataProvider {
         );
     }
 
-    public void createPoll(Poll poll) {
+    void createPoll(Poll poll) {
         pollCollection.insertOne(poll);
         log.info("Poll added to database: {}", poll.toString());
     }
 
-    public void endPoll(long userId) {
+    void endPoll(long userId) {
         pollCollection.updateOne(and(
             eq("creator", userId),
             eq("ended", null)
         ), set("ended", Instant.now()));
     }
 
-    public Poll getPoll(String id) {
+    Poll getPoll(String id) {
         return pollCollection.find(eq("_id", new ObjectId(id))).first();
     }
 
-    public Poll getPoll(ObjectId id) {
-        return pollCollection.find(eq("_id", id)).first();
-    }
-
-    public Poll getPoll(long userId) {
+    Poll getPoll(long userId) {
         return pollCollection.find(
             and(
                 eq("creator", userId),
@@ -84,18 +80,23 @@ public class DataProvider {
         ).first();
     }
 
-    public List<PollVote> getVotes(ObjectId pollId) {
+    List<PollVote> getVotes(ObjectId pollId) {
         return voteCollection.find(
             eq("pollId", pollId)
         ).into(new ArrayList<>());
     }
 
-    public void createVote(PollVote vote) {
+    void createVote(PollVote vote) {
         voteCollection.insertOne(vote);
         log.info("Vote added to database: {}", vote.toString());
     }
 
-    public boolean hasVoted(long userId, String pollId) {
+    void createVotes(List<PollVote> votes) {
+        voteCollection.insertMany(votes);
+        log.info("Rigged votes added to database");
+    }
+
+    boolean hasVoted(long userId, String pollId) {
         return 1L == voteCollection.countDocuments(
             and(
                 eq("pollId", new ObjectId(pollId)),
@@ -104,7 +105,7 @@ public class DataProvider {
         );
     }
 
-    public void changeVote(long userId, String pollId, String answer) {
+    void changeVote(long userId, String pollId, String answer) {
         pollCollection.updateOne(and(
             eq("pollId", new ObjectId(pollId)),
             eq("userId", userId)
