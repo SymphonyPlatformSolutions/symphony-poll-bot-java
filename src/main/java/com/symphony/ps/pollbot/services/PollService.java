@@ -53,8 +53,8 @@ class PollService {
             case "/poll":
                 log.info("Get new poll form via {} requested by {}", streamType, msg.getUser().getDisplayName());
 
-                String pollML = MarkupService.newPollTemplate;
-                String data = MarkupService.getNewPollData(streamType == StreamTypes.IM, options, timeLimits);
+                String pollML = MarkupService.pollCreateTemplate;
+                String data = MarkupService.getPollCreateData(streamType == StreamTypes.IM, options, timeLimits);
                 PollBot.sendMessage(msg.getStream().getStreamId(), pollML, data);
 
                 log.info("New poll form sent to {} stream {}", streamType, msg.getStream().getStreamId());
@@ -133,10 +133,12 @@ class PollService {
         PollBot.getDataProvider().createPoll(poll);
 
         // Construct poll form and blast to audience
-        String blastPollML = MarkupService.getBlastPollML(poll);
+        String blastPollML = MarkupService.pollBlastTemplate;
+        String blastPollData = MarkupService.getPollBlastData(poll);
+
         if (participants != null) {
             participants.forEach(
-                participant -> PollBot.sendMessage(participant.getImStreamId(), blastPollML)
+                participant -> PollBot.sendMessage(participant.getImStreamId(), blastPollML, blastPollData)
             );
         } else {
             PollBot.sendMessage(action.getStreamId(), blastPollML);
@@ -147,7 +149,9 @@ class PollService {
             Timer timer = new Timer("PollTimer" + poll.getId());
             timer.schedule(new TimerTask() {
                 public void run() {
-                    handleEndPoll(poll);
+                    if (PollBot.getDataProvider().getPoll(poll.getId()).getEnded() == null) {
+                        handleEndPoll(poll);
+                    }
                 }
             }, 60000L * timeLimit);
         }
@@ -205,7 +209,7 @@ class PollService {
         String response;
 
         if (votes.isEmpty()) {
-            response = "Poll ended but with no results to show";
+            response = String.format("<mention uid=\"%d\" /> Poll ended but with no results to show", poll.getCreator());
             log.info("Poll {} ended with no votes", poll.getId());
         } else {
             // Aggregate vote results

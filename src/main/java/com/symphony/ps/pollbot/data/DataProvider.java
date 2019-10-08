@@ -71,6 +71,10 @@ public class DataProvider {
         return pollCollection.find(eq("_id", new ObjectId(id))).first();
     }
 
+    public Poll getPoll(ObjectId id) {
+        return pollCollection.find(eq("_id", id)).first();
+    }
+
     public Poll getPoll(long userId) {
         return pollCollection.find(
             and(
