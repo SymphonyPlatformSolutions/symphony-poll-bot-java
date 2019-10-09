@@ -106,7 +106,7 @@ public class DataService {
     }
 
     void changeVote(long userId, String pollId, String answer) {
-        pollCollection.updateOne(and(
+        voteCollection.updateOne(and(
             eq("pollId", new ObjectId(pollId)),
             eq("userId", userId)
         ), set("answer", answer));
