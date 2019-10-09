@@ -4,7 +4,7 @@ This bot uses Symphony Elements to facilitate the creation of polls, firing of p
 ![](poll-bot.gif)
 
 ## Requirements
-* JDK 8
+* JDK 8+
 * Maven 3
 * MongoDB
 

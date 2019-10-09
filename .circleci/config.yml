@@ -1,0 +1,234 @@
+# Java Maven CircleCI 2.0 configuration file
+#
+# Check https://circleci.com/docs/2.0/language-java/ for more details
+#
+version: 2.1
+#####################################################
+# Run config
+#####################################################
+defaults: &defaults
+  docker:
+    - image: maven:3.3-jdk-8
+  working_directory: ~/project
+
+gcp_defaults: &gcp_defaults
+  docker:
+    - image: google/cloud-sdk
+  working_directory: ~/project
+
+#####################################################
+# Common Commands
+#####################################################
+# TODO: Author a private Orb. Status: CircleCI feature avaliation
+# Specific CI commands should be setup as an anchor.
+commands:
+  build_docker_image:
+    description: Build a Docker image
+    parameters:
+      registry:
+        type: string
+        default: "us.gcr.io"
+      project:
+        type: string
+        default: ${GCP_PROJECT}
+      image_name:
+        type: string
+        default: ${IMAGE_NAME}
+      tag:
+        type: string
+        default: ${CIRCLE_SHA1}
+      context:
+        type: string
+        default: .
+      params:
+        type: string
+        default: "--rm=false"
+    steps:
+      - run:
+          name: Docker image build
+          command: |
+            docker build << parameters.params >> \
+                -t << parameters.registry >>/<< parameters.project >>/<< parameters.image_name >>:<<parameters.tag >> << parameters.context >>
+
+  get_google_account:
+    description: Get Google Authentication Auth Data
+    parameters:
+      auth_string:
+        type: string
+        default: ${GOOGLE_AUTH}
+      key_file:
+        description: Target file to save auth data
+        type: string
+    steps:
+      - run:
+          name: Get Google Cloud Account Info
+          command: |
+            echo << parameters.auth_string >> > << parameters.key_file >>
+
+  google_cloud_authenticate:
+    description: Authenticate within GCP
+    parameters:
+      key_file:
+        description: Target file to read auth data from
+        type: string
+      project:
+        type: string
+      compute_zone:
+        type: string
+      cluster_name:
+        type: string
+    steps:
+      - run:
+          name: Google Cloud Authenticate
+          command: |
+            gcloud auth activate-service-account --key-file << parameters.key_file >>
+            gcloud --quiet config set project << parameters.project >>
+            gcloud --quiet config set compute/zone  << parameters.compute_zone >>
+            gcloud --quiet container clusters get-credentials << parameters.cluster_name >>
+
+  push_docker_image:
+    description: Push a Docker image to the specified registry
+    parameters:
+      registry:
+        type: string
+        default: "us.gcr.io"
+      project:
+        type: string
+        default: ${GCP_PROJECT}
+      image_name:
+        type: string
+        default: ${IMAGE_NAME}
+      tag:
+        type: string
+        default: $CIRCLE_SHA1
+    steps:
+      - attach_workspace:
+          at: ~/project
+      - run:
+          name: Push image
+          command: |
+            gcloud docker -- push <<parameters.registry >>/<< parameters.project >>/<< parameters.image_name >>:<< parameters.tag >>
+      - run:
+          name: Get Bot Credentials
+          command: |
+            echo ${PRIVATE_KEY} > private-key.pkcs8
+            kubectl create secret generic ${IMAGE_NAME}-dev-rsa --from-file=./private-key.pkcs8 --dry-run -o yaml | kubectl apply -f -
+
+  deploy_to_kubernetes:
+    description: Deploy workload to Kubernetes Cluster
+    parameters:
+      project:
+        type: string
+        default: ${PROJECT_NAME}
+      template:
+        description: Template file to be used for deployment config
+        type: string
+        default: ${HOME}/project/.circleci/k8s.yaml
+      deployment:
+        description: Name for the deployment config created from template
+        type: string
+        default: ${HOME}/project/.circleci/k8s_deploy_${IMAGE_NAME}.yaml
+    steps:
+      - run:
+          name: Debug stuff
+          command: |
+            echo "${HOME}/project/.circleci/k8s.yaml"
+            ls -al ${HOME}/project/.circleci
+            echo "${HOME}/project/.circleci/k8s_deploy_${IMAGE_NAME}.yaml"
+      - run:
+          name: Deploy to Kubernetes
+          command: |
+            apt-get install -qq -y gettext
+            envsubst < << parameters.template >> > << parameters.deployment >>
+            kubectl apply -f << parameters.deployment >>
+            kubectl rollout status deployment/${IMAGE_NAME}
+
+jobs:
+  build:
+    docker:
+      # specify the version you desire here
+      - image: circleci/openjdk:11.0.1-jdk
+
+    working_directory: ~/project
+
+    environment:
+      # Customize the JVM maximum heap limit
+      MAVEN_OPTS: -Xmx3200m
+
+    steps:
+      - checkout
+
+      # Download and cache dependencies
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "pom.xml" }}
+            # fallback to using the latest cache if no exact match is found
+            - v1-dependencies-
+
+      - run: mvn dependency:go-offline
+
+      - save_cache:
+          paths:
+            - ~/.m2
+          key: v1-dependencies-{{ checksum "pom.xml" }}
+
+      # package into a jar
+      - run: mvn clean package
+
+      # persist the generated jar to make it available in next step (building the docker image)
+      - persist_to_workspace:
+          root: ~/project
+          paths:
+            - .circleci
+            - target/*.jar
+            - Dockerfile
+
+  docker_build:
+    <<: *gcp_defaults
+
+    working_directory: ~/project
+
+    steps:
+      - attach_workspace:
+          at: ~/project
+
+      - setup_remote_docker
+
+      - get_google_account:
+          auth_string: ${GOOGLE_AUTH}
+          key_file: ./gcp-key.json
+
+      - build_docker_image
+
+      - google_cloud_authenticate:
+          key_file: ./gcp-key.json
+          project: ${GCP_PROJECT}
+          compute_zone: ${GOOGLE_COMPUTE_ZONE}
+          cluster_name: ${GOOGLE_CLUSTER_NAME}
+
+      - push_docker_image
+
+      # Using default parameter
+      - deploy_to_kubernetes
+
+      - persist_to_workspace:
+          root: ~/project
+          paths:
+            - .circleci
+            - Dockerfile
+
+#####################################################
+# Workflow
+#####################################################
+workflows:
+  version: 2
+  test_and_build:
+    jobs:
+      - build
+      - docker_build:
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                - release
