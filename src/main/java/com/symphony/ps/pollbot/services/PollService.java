@@ -5,7 +5,6 @@ import com.symphony.ps.pollbot.model.*;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import model.InboundMessage;
@@ -267,27 +266,17 @@ public class PollService {
             log.info("Poll {} ended with no votes", poll.getId());
         } else {
             // Aggregate vote results
-            Map<String, Long> voteResultsMap = votes.stream()
-                .map(PollVote::getAnswer)
-                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()))
-                .entrySet().stream()
-                .sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
+            List<PollResult> pollResults = PollBot.getDataService().getPollResults(poll.getId());
+
+            // Add in widths
+            long maxVal = Collections.max(pollResults, Comparator.comparingLong(PollResult::getCount)).getCount();
+            pollResults.forEach(r -> r.setWidth(Math.max(1, (int) (((float) r.getCount() / maxVal) * 200))));
 
             // Add in 0 votes for options nobody voted on
             poll.getAnswers().stream()
-                .filter(answer -> !voteResultsMap.containsKey(answer))
-                .forEach(answer -> voteResultsMap.put(answer, 0L));
-
-            // Construct results table
-            long maxVal = Collections.max(voteResultsMap.values());
-            List<PollResult> pollResults = voteResultsMap.entrySet().stream().map(e -> {
-                int width = (int) (((float) e.getValue() / maxVal) * 200);
-                if (width == 0 && e.getValue() > 0) {
-                    width = 1;
-                }
-                return PollResult.builder().answer(e.getKey()).count(e.getValue()).width(width).build();
-            }).collect(Collectors.toList());
+                .map(a -> new PollResult(a, 0, 0))
+                .filter(a -> !pollResults.contains(a))
+                .forEach(pollResults::add);
 
             response = MarkupService.pollResultsTemplate;
             data = MarkupService.wrapData(PollResultsData.builder()
@@ -296,7 +285,7 @@ public class PollService {
                 .results(pollResults)
                 .build());
 
-            log.info("Poll {} ended with results {}", poll.getId(), voteResultsMap.toString());
+            log.info("Poll {} ended with results {}", poll.getId(), pollResults.toString());
         }
 
         PollBot.getDataService().endPoll(poll.getCreator());

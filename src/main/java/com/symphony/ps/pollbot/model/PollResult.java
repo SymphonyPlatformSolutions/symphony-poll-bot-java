@@ -1,12 +1,28 @@
 package com.symphony.ps.pollbot.model;
 
-import lombok.Builder;
-import lombok.Data;
+import java.util.Objects;
+import lombok.*;
 
-@Data
 @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class PollResult extends PollData {
     private String answer;
     private long count;
     private int width;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) { return true; }
+        if (!(o instanceof PollResult)) { return false; }
+        PollResult that = (PollResult) o;
+        return answer.equals(that.answer);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(answer);
+    }
 }

@@ -7,17 +7,23 @@ import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.symphony.ps.pollbot.model.Poll;
+import com.symphony.ps.pollbot.model.PollResult;
 import com.symphony.ps.pollbot.model.PollVote;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.codecs.configuration.CodecRegistry;
 import org.bson.codecs.pojo.PojoCodecProvider;
 import org.bson.types.ObjectId;
+import static com.mongodb.client.model.Accumulators.sum;
+import static com.mongodb.client.model.Aggregates.*;
 import static com.mongodb.client.model.Filters.and;
 import static com.mongodb.client.model.Filters.eq;
+import static com.mongodb.client.model.Projections.*;
+import static com.mongodb.client.model.Sorts.descending;
 import static com.mongodb.client.model.Updates.set;
 import static org.bson.codecs.configuration.CodecRegistries.fromProviders;
 import static org.bson.codecs.configuration.CodecRegistries.fromRegistries;
@@ -86,6 +92,20 @@ public class DataService {
         ).into(new ArrayList<>());
     }
 
+    List<PollResult> getPollResults(ObjectId pollId) {
+        return voteCollection.aggregate(
+            Arrays.asList(
+                match(eq("pollId", pollId)),
+                group("$answer", sum("count", 1)),
+                sort(descending("count")),
+                project(fields(
+                    computed("answer", "$_id"),
+                    include("count")
+                ))
+            ), PollResult.class
+        ).into(new ArrayList<>());
+    }
+
     void createVote(PollVote vote) {
         voteCollection.insertOne(vote);
         log.info("Vote added to database: {}", vote.toString());
@@ -97,12 +117,10 @@ public class DataService {
     }
 
     boolean hasVoted(long userId, String pollId) {
-        return 1L == voteCollection.countDocuments(
-            and(
-                eq("pollId", new ObjectId(pollId)),
-                eq("userId", userId)
-            )
-        );
+        return 1L == voteCollection.countDocuments(and(
+            eq("pollId", new ObjectId(pollId)),
+            eq("userId", userId)
+        ));
     }
 
     void changeVote(long userId, String pollId, String answer) {
