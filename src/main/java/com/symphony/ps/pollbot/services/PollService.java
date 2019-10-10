@@ -22,97 +22,63 @@ public class PollService {
         "<li><b>/endpoll</b>: End your active poll</li></ul>";
 
     public static void handleIncomingMessage(InboundMessage msg, StreamTypes streamType) {
-        int options = 6;
-        List<Integer> timeLimits = Arrays.asList(0, 2, 5);
-
+        long userId = msg.getUser().getUserId();
+        String displayName = msg.getUser().getDisplayName();
         String streamId = msg.getStream().getStreamId();
-        String msgText = msg.getMessageText().trim().toLowerCase();
-        String[] msgParts = msgText.split(" ", 2);
+        String[] msgParts = msg.getMessageText().trim().toLowerCase().split(" ", 2);
+        PollConfig pollConfig = (msgParts.length == 1) ? new PollConfig()
+            : parseConfigInput(streamId, msgParts[1].split(" "));
 
-        if (msgParts.length > 1) {
-            for (String pollConfig : msgParts[1].split(" ")) {
-                if (pollConfig.matches("^\\d+$")) {
-                    options = Integer.parseInt(pollConfig);
-                    if (options < 2 || options > 10) {
-                        PollBot.sendMessage(streamId, "Number of options must be between 2 and 10");
-                        return;
-                    }
-                } else if (pollConfig.matches("^\\d+(,\\d+)+$")) {
-                    timeLimits = Arrays.stream(pollConfig.split(","))
-                        .map(Integer::parseInt)
-                        .sorted()
-                        .collect(Collectors.toList());
-                    if (timeLimits.size() > 10) {
-                        PollBot.sendMessage(streamId, "Number of time limits should be 10 or lower");
-                        return;
-                    } else if (timeLimits.stream().anyMatch(t -> t < 0)) {
-                        PollBot.sendMessage(streamId, "Time limits contains negative numbers");
-                        return;
-                    }
-                }
-            }
+        if (pollConfig == null) {
+            return;
         }
 
         switch (msgParts[0]) {
             case "/help":
-                PollBot.sendMessage(msg.getStream().getStreamId(), helpML);
+                PollBot.sendMessage(streamId, helpML);
                 break;
 
             case "/poll":
             case "/createpoll":
-                // Reject poll creation if an active one exists
-                if (userHasActivePoll(msg.getUser(), msg.getStream().getStreamId())) {
-                    return;
-                }
-                log.info("Get new poll form via {} requested by {}", streamType, msg.getUser().getDisplayName());
-
-                String pollML = MarkupService.pollCreateTemplate;
-                String data = MarkupService.getPollCreateData(streamType == StreamTypes.IM, options, timeLimits);
-                PollBot.sendMessage(msg.getStream().getStreamId(), pollML, data);
-
-                log.info("New poll form sent to {} stream {}", streamType, msg.getStream().getStreamId());
-                break;
-
-            case "/endpoll":
-                log.info("End poll requested by {}", msg.getUser().getDisplayName());
-                Poll poll = PollBot.getDataService().getPoll(msg.getUser().getUserId());
-                if (poll == null) {
-                    PollBot.sendMessage(msg.getStream().getStreamId(), "You have no active poll to end");
-                    log.info("User {} has no active poll to end", msg.getUser().getDisplayName());
-                    return;
-                }
-                handleEndPoll(poll);
+                handleSendCreatePollForm(streamId, streamType, msg.getUser(), pollConfig);
                 break;
 
             case "/rigpoll":
-                Poll pollToRig = PollBot.getDataService().getPoll(msg.getUser().getUserId());
-                if (pollToRig == null) {
-                    PollBot.sendMessage(msg.getStream().getStreamId(), "You have no active poll to rig");
-                    log.info("User {} has no active poll to rig", msg.getUser().getDisplayName());
-                    return;
-                }
+                handleRigPoll(streamId, userId, displayName);
+                break;
 
-                List<PollVote> votes = new ArrayList<>();
-                List<String> randomAnswers = new ArrayList<>(pollToRig.getAnswers());
-                Collections.shuffle(randomAnswers);
-                int answersSize = pollToRig.getAnswers().size();
-                int rigVolume = ThreadLocalRandom.current().nextInt(17, 77);
-                for (int i=0; i < answersSize; i++) {
-                    for (int r = 0; r < rigVolume; r++) {
-                        votes.add(PollVote.builder()
-                            .pollId(pollToRig.getId())
-                            .answer(randomAnswers.get(i))
-                            .build());
-                    }
-                    rigVolume += (Math.random() * 387) - (Math.random() * 27);
-                }
-                PollBot.getDataService().createVotes(votes);
-
-                PollBot.sendMessage(msg.getStream().getStreamId(), "Your active poll has been rigged");
-                log.info("User {} has rigged active poll", msg.getUser().getDisplayName());
+            case "/endpoll":
+                handleEndPoll(streamId, userId, displayName);
+                break;
 
             default:
         }
+    }
+
+    private static PollConfig parseConfigInput(String streamId, String[] inputs) {
+        int options = 6;
+        List<Integer> timeLimits = Arrays.asList(0, 2, 5);
+
+        for (String input : inputs) {
+            if (input.matches("^\\d+$")) {
+                options = Integer.parseInt(input);
+                if (options < 2 || options > 10) {
+                    PollBot.sendMessage(streamId, "Number of options must be between 2 and 10");
+                    return null;
+                }
+            } else if (input.matches("^\\d+(,\\d+)+$")) {
+                timeLimits = Arrays.stream(input.split(","))
+                    .map(Integer::parseInt)
+                    .distinct()
+                    .sorted()
+                    .collect(Collectors.toList());
+                if (timeLimits.size() > 10) {
+                    PollBot.sendMessage(streamId, "Number of time limits should be 10 or lower");
+                    return null;
+                }
+            }
+        }
+        return new PollConfig(options, timeLimits);
     }
 
     private static boolean userHasActivePoll(User user, String streamId) {
@@ -124,6 +90,21 @@ public class PollService {
             return true;
         }
         return false;
+    }
+
+    private static void handleSendCreatePollForm(String streamId, StreamTypes streamType, User user, PollConfig pollConfig) {
+        // Reject poll creation if an active one exists
+        if (userHasActivePoll(user, streamId)) {
+            return;
+        }
+        log.info("Get new poll form via {} requested by {}", streamType, user.getDisplayName());
+
+        boolean isIM = streamType == StreamTypes.IM;
+        String pollML = MarkupService.pollCreateTemplate;
+        String data = MarkupService.getPollCreateData(isIM, pollConfig.getOptions(), pollConfig.getTimeLimits());
+        PollBot.sendMessage(streamId, pollML, data);
+
+        log.info("New poll form sent to {} stream {}", streamType, streamId);
     }
 
     @SuppressWarnings("unchecked")
@@ -197,9 +178,7 @@ public class PollService {
             Timer timer = new Timer("PollTimer" + poll.getId());
             timer.schedule(new TimerTask() {
                 public void run() {
-                    if (PollBot.getDataService().getPoll(poll.getId().toString()).getEnded() == null) {
-                        handleEndPoll(poll);
-                    }
+                    handleEndPoll(null, poll.getCreator(), null);
                 }
             }, 60000L * timeLimit);
 
@@ -257,7 +236,48 @@ public class PollService {
             String.format("<mention uid=\"%d\"/> %s!", initiator.getUserId(), response));
     }
 
-    private static void handleEndPoll(Poll poll) {
+    private static void handleRigPoll(String streamId, long userId, String displayName) {
+        Poll pollToRig = PollBot.getDataService().getPoll(userId);
+        if (pollToRig == null) {
+            PollBot.sendMessage(streamId, "You have no active poll to rig");
+            log.info("User {} has no active poll to rig", displayName);
+            return;
+        }
+
+        List<PollVote> votes = new ArrayList<>();
+        List<String> randomAnswers = new ArrayList<>(pollToRig.getAnswers());
+        Collections.shuffle(randomAnswers);
+        int answersSize = pollToRig.getAnswers().size();
+        int rigVolume = ThreadLocalRandom.current().nextInt(17, 77);
+        for (int i=0; i < answersSize; i++) {
+            for (int r = 0; r < rigVolume; r++) {
+                votes.add(PollVote.builder()
+                    .pollId(pollToRig.getId())
+                    .answer(randomAnswers.get(i))
+                    .build());
+            }
+            rigVolume += (Math.random() * 387) - (Math.random() * 27);
+        }
+        PollBot.getDataService().createVotes(votes);
+
+        PollBot.sendMessage(streamId, "Your active poll has been rigged");
+        log.info("User {} has rigged active poll", displayName);
+    }
+
+    private static void handleEndPoll(String streamId, long userId, String displayName) {
+        log.info("End poll requested by {}", displayName);
+
+        Poll poll = PollBot.getDataService().getPoll(userId);
+        if (poll == null) {
+            if (streamId != null) {
+                PollBot.sendMessage(streamId, "You have no active poll to end");
+                log.info("User {} has no active poll to end", displayName);
+            } else {
+                log.info("Poll by {} time limit reached but poll was already ended", userId);
+            }
+            return;
+        }
+
         List<PollVote> votes = PollBot.getDataService().getVotes(poll.getId());
         String response, data = null;
 
