@@ -23,6 +23,7 @@ import static com.mongodb.client.model.Aggregates.*;
 import static com.mongodb.client.model.Filters.and;
 import static com.mongodb.client.model.Filters.eq;
 import static com.mongodb.client.model.Projections.*;
+import static com.mongodb.client.model.Sorts.ascending;
 import static com.mongodb.client.model.Sorts.descending;
 import static com.mongodb.client.model.Updates.set;
 import static org.bson.codecs.configuration.CodecRegistries.fromProviders;
@@ -77,13 +78,30 @@ public class DataService {
         return pollCollection.find(eq("_id", new ObjectId(id))).first();
     }
 
-    Poll getPoll(long userId) {
+    Poll getActivePoll(long userId) {
         return pollCollection.find(
             and(
                 eq("creator", userId),
                 eq("ended", null)
             )
         ).first();
+    }
+
+    List<Poll> getPolls(long userId) {
+        return pollCollection
+            .find(eq("creator", userId))
+            .sort(ascending("created"))
+            .into(new ArrayList<>());
+    }
+
+    List<Poll> getPolls(long userId, String streamId) {
+        return pollCollection
+            .find(and(
+                eq("creator", userId),
+                eq("streamId", streamId)
+            ))
+            .sort(ascending("created"))
+            .into(new ArrayList<>());
     }
 
     List<PollVote> getVotes(ObjectId pollId) {

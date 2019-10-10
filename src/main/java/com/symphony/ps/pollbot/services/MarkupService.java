@@ -23,6 +23,7 @@ class MarkupService {
     static String pollCreateTemplate = loadTemplate("/poll-create-form.ftl");
     static String pollBlastTemplate = loadTemplate("/poll-blast-form.ftl");
     static String pollResultsTemplate = loadTemplate("/poll-results.ftl");
+    static String pollHistoryTemplate = loadTemplate("/poll-history.ftl");
 
     private static String loadTemplate(String fileName) {
         InputStream stream = MarkupService.class.getResourceAsStream(fileName);
