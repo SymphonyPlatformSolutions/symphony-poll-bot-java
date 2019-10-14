@@ -26,7 +26,8 @@ public class PollService {
     private static final String helpML = "<ul>" +
         "<li><b>/poll</b>: Get a standard create poll form</li>" +
         "<li><b>/poll 4 0,5,15</b>: Get a create poll form with 4 options and time limits of None, 5 and 15 minutes</li>" +
-        "<li><b>/endpoll</b>: End your active poll</li></ul>";
+        "<li><b>/endpoll</b>: End your active poll</li>" +
+        "<li><b>/history</b>: View your personal poll history</li></ul>";
 
     public void handleIncomingMessage(InboundMessage msg, StreamTypes streamType) {
         long userId = msg.getUser().getUserId();
@@ -42,7 +43,9 @@ public class PollService {
 
         switch (msgParts[0]) {
             case "/help":
-                PollBot.sendMessage(streamId, helpML);
+                String helpMLForStream = streamType == StreamTypes.IM ? helpML
+                    : helpML.replace("</li></ul>", " for this room</li></ul>");
+                PollBot.sendMessage(streamId, helpMLForStream);
                 break;
 
             case "/poll":
@@ -328,25 +331,16 @@ public class PollService {
     private void handleHistory(String streamId, StreamTypes streamType, long userId, String displayName) {
         log.info("Poll history requested by {}", displayName);
 
-        List<Poll> polls = (streamType == StreamTypes.IM) ?
-            dataService.getPolls(userId) :
-            dataService.getPolls(userId, streamId);
+        PollHistory pollHistory = dataService.getPollHistory(userId, streamType == StreamTypes.ROOM ? streamId : null);
 
-        if (polls == null || polls.isEmpty()) {
-            PollBot.sendMessage(streamId, String.format("<mention uid=\"%d\" /> You have no poll history", userId));
+        if (pollHistory == null) {
+            String roomSuffix = streamType == StreamTypes.ROOM ? " for this room" : "";
+            PollBot.sendMessage(streamId, String.format("<mention uid=\"%d\"/> You have no poll history%s.", userId, roomSuffix));
             return;
         }
 
-        List<PollDTO> pollData = polls.stream()
-            .map(PollDTO::fromPoll)
-            .collect(Collectors.toList());
-
         String pollHistoryTemplate = MarkupService.pollHistoryTemplate;
-        PollHistory history = PollHistory.builder()
-            .polls(pollData)
-            .creatorId(userId + "")
-            .room(streamType == StreamTypes.ROOM)
-            .build();
-        PollBot.sendMessage(streamId, pollHistoryTemplate, MarkupService.wrapData(history));
+
+        PollBot.sendMessage(streamId, pollHistoryTemplate, MarkupService.wrapData(pollHistory));
     }
 }

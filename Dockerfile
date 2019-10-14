@@ -1,4 +1,4 @@
 FROM adoptopenjdk/openjdk12:alpine-jre
 WORKDIR /data/symphony
 COPY ./target/*.jar bot.jar
-ENTRYPOINT [ "java", "-jar", "./bot.jar", "--spring.config.location=application.properties" ]
+ENTRYPOINT [ "java", "-Xverify:none", "-jar", "./bot.jar", "--spring.config.location=application.properties" ]
