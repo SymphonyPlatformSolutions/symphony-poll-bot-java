@@ -1,150 +1,95 @@
 package com.symphony.ps.pollbot.services;
 
-import com.mongodb.ConnectionString;
-import com.mongodb.MongoClientSettings;
-import com.mongodb.client.MongoClient;
-import com.mongodb.client.MongoClients;
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoDatabase;
 import com.symphony.ps.pollbot.model.Poll;
 import com.symphony.ps.pollbot.model.PollResult;
 import com.symphony.ps.pollbot.model.PollVote;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Arrays;
+import com.symphony.ps.pollbot.repository.PollRepository;
+import com.symphony.ps.pollbot.repository.PollVoteRepository;
 import java.util.List;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.bson.codecs.configuration.CodecRegistry;
-import org.bson.codecs.pojo.PojoCodecProvider;
-import org.bson.types.ObjectId;
-import static com.mongodb.client.model.Accumulators.sum;
-import static com.mongodb.client.model.Aggregates.*;
-import static com.mongodb.client.model.Filters.and;
-import static com.mongodb.client.model.Filters.eq;
-import static com.mongodb.client.model.Projections.*;
-import static com.mongodb.client.model.Sorts.ascending;
-import static com.mongodb.client.model.Sorts.descending;
-import static com.mongodb.client.model.Updates.set;
-import static org.bson.codecs.configuration.CodecRegistries.fromProviders;
-import static org.bson.codecs.configuration.CodecRegistries.fromRegistries;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.stereotype.Service;
+import static org.springframework.data.mongodb.core.aggregation.Aggregation.*;
 
 @Slf4j
+@Service
 public class DataService {
-    @Getter
-    MongoCollection<Poll> pollCollection;
-    @Getter
-    MongoCollection<PollVote> voteCollection;
+    private final MongoTemplate mongoTemplate;
+    private final PollRepository pollRepository;
+    private final PollVoteRepository pollVoteRepository;
 
-    public DataService(String url) {
-        CodecRegistry registry = fromRegistries(
-            MongoClientSettings.getDefaultCodecRegistry(),
-            fromProviders(PojoCodecProvider.builder().automatic(true).build())
-        );
-        MongoClient mongoClient = MongoClients.create(
-            MongoClientSettings.builder()
-                .codecRegistry(registry)
-                .applyConnectionString(new ConnectionString(url))
-                .build()
-        );
-        MongoDatabase db = mongoClient.getDatabase("PollBot");
-
-        pollCollection = db.getCollection("poll", Poll.class);
-        voteCollection = db.getCollection("vote", PollVote.class);
+    public DataService(MongoTemplate mongoTemplate, PollRepository pollRepository, PollVoteRepository pollVoteRepository) {
+        this.mongoTemplate = mongoTemplate;
+        this.pollRepository = pollRepository;
+        this.pollVoteRepository = pollVoteRepository;
     }
 
     boolean hasActivePoll(long userId) {
-        return 1L == pollCollection.countDocuments(
-            and(
-                eq("creator", userId),
-                eq("ended", null)
-            )
-        );
+        return 1L == pollRepository.countByCreatorAndEnded(userId, null);
     }
 
     void createPoll(Poll poll) {
-        pollCollection.insertOne(poll);
+        pollRepository.save(poll);
         log.info("Poll added to database: {}", poll.toString());
     }
 
     void endPoll(long userId) {
-        pollCollection.updateOne(and(
-            eq("creator", userId),
-            eq("ended", null)
-        ), set("ended", Instant.now()));
+        Poll poll = getActivePoll(userId);
+        pollRepository.save(poll);
     }
 
     Poll getPoll(String id) {
-        return pollCollection.find(eq("_id", new ObjectId(id))).first();
+        return pollRepository.findById(id).orElse(null);
     }
 
     Poll getActivePoll(long userId) {
-        return pollCollection.find(
-            and(
-                eq("creator", userId),
-                eq("ended", null)
-            )
-        ).first();
+        return pollRepository.findTopByCreatorAndEnded(userId, null);
     }
 
     List<Poll> getPolls(long userId) {
-        return pollCollection
-            .find(eq("creator", userId))
-            .sort(ascending("created"))
-            .into(new ArrayList<>());
+        return pollRepository.findAllByCreatorOrderByCreatedDesc(userId);
     }
 
     List<Poll> getPolls(long userId, String streamId) {
-        return pollCollection
-            .find(and(
-                eq("creator", userId),
-                eq("streamId", streamId)
-            ))
-            .sort(ascending("created"))
-            .into(new ArrayList<>());
+        return pollRepository.findAllByCreatorAndStreamIdOrderByCreatedDesc(userId, streamId);
     }
 
-    List<PollVote> getVotes(ObjectId pollId) {
-        return voteCollection.find(
-            eq("pollId", pollId)
-        ).into(new ArrayList<>());
+    List<PollVote> getVotes(String pollId) {
+        return pollVoteRepository.findAllByPollId(pollId);
     }
 
-    List<PollResult> getPollResults(ObjectId pollId) {
-        return voteCollection.aggregate(
-            Arrays.asList(
-                match(eq("pollId", pollId)),
-                group("$answer", sum("count", 1)),
-                sort(descending("count")),
-                project(fields(
-                    computed("answer", "$_id"),
-                    include("count")
-                ))
-            ), PollResult.class
-        ).into(new ArrayList<>());
+    public List<PollResult> getPollResults(String pollId) {
+        return mongoTemplate
+            .aggregate(newAggregation(
+                match(new Criteria("pollId").is(pollId)),
+                group("answer").count().as("count"),
+                project("count").and("answer").previousOperation(),
+                sort(new Sort(Sort.Direction.DESC, "count"))
+                ),
+                "pollVote", PollResult.class
+            )
+            .getMappedResults();
     }
 
     void createVote(PollVote vote) {
-        voteCollection.insertOne(vote);
+        pollVoteRepository.save(vote);
         log.info("Vote added to database: {}", vote.toString());
     }
 
     void createVotes(List<PollVote> votes) {
-        voteCollection.insertMany(votes);
+        pollVoteRepository.saveAll(votes);
         log.info("Rigged votes added to database");
     }
 
     boolean hasVoted(long userId, String pollId) {
-        return 1L == voteCollection.countDocuments(and(
-            eq("pollId", new ObjectId(pollId)),
-            eq("userId", userId)
-        ));
+        return pollVoteRepository.findTopByPollIdAndUserId(pollId, userId) != null;
     }
 
     void changeVote(long userId, String pollId, String answer) {
-        voteCollection.updateOne(and(
-            eq("pollId", new ObjectId(pollId)),
-            eq("userId", userId)
-        ), set("answer", answer));
+        PollVote vote = pollVoteRepository.findTopByPollIdAndUserId(pollId, userId);
+        vote.setAnswer(answer);
+        pollVoteRepository.save(vote);
     }
 }

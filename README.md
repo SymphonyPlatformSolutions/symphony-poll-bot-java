@@ -7,6 +7,8 @@ This bot uses Symphony Elements to facilitate the creation of polls, firing of p
 * JDK 8+
 * Maven 3
 * MongoDB
+* Symphony Pod 1.55.3 or later
+* Symphony API Agent 2.55.9 or later
 
 # Configuration
 Fill up `src/main/resources/config.json` with the appropriate values for pod information,

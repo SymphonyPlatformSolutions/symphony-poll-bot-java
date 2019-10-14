@@ -42,7 +42,7 @@ class MarkupService {
 
     static String getPollBlastData(Poll poll) {
         return wrapData(new PollBlastData(
-            poll.getId().toString(),
+            poll.getId() + "",
             poll.getTimeLimit(),
             poll.getQuestionText(),
             poll.getAnswers(),

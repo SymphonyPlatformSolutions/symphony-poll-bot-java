@@ -6,10 +6,18 @@ import model.InboundMessage;
 import model.Stream;
 import model.StreamTypes;
 import model.events.*;
+import org.springframework.stereotype.Service;
 
+@Service
 public class RoomListenerImpl implements RoomListener {
+    private final PollService pollService;
+
+    public RoomListenerImpl(PollService pollService) {
+        this.pollService = pollService;
+    }
+
     public void onRoomMessage(InboundMessage message) {
-        PollService.handleIncomingMessage(message, StreamTypes.ROOM);
+        pollService.handleIncomingMessage(message, StreamTypes.ROOM);
     }
 
     public void onRoomCreated(RoomCreated roomCreated) {}

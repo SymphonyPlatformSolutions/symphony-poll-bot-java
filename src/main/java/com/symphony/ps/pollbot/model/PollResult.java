@@ -9,9 +9,14 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PollResult extends PollData {
+    private String pollId;
     private String answer;
     private long count;
     private int width;
+
+    public PollResult(String answer) {
+        this.answer = answer;
+    }
 
     @Override
     public boolean equals(Object o) {

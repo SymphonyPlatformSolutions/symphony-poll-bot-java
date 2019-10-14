@@ -12,7 +12,5 @@
   "botEmailAddress": "poll-bot-java@bots.symphony.com",
 
   "botPrivateKeyPath": "rsa/",
-  "botPrivateKeyName": "rsa-private-poll-bot-java.pem",
-
-  "mongoUri": ""
+  "botPrivateKeyName": "rsa-private-poll-bot-java.pem"
 }
