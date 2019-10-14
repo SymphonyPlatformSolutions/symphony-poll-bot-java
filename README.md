@@ -12,7 +12,7 @@ This bot uses Symphony Elements to facilitate the creation of polls, firing of p
 
 # Configuration
 Fill up `src/main/resources/config.json` with the appropriate values for pod information,
-service account details and uri of your MongoDB instance. 
+and service account details 
 ```json5
 {
     "sessionAuthHost": "[pod].symphony.com",
@@ -26,7 +26,13 @@ service account details and uri of your MongoDB instance.
     "botUsername": "poll-bot",
     "botEmailAddress": "poll-bot@bots.symphony.com",
     "botPrivateKeyPath": "rsa/",
-    "botPrivateKeyName": "rsa-private-poll-bot.pem",
-    "mongoUri": "mongodb+srv://user:pass@mongodb/admin"
+    "botPrivateKeyName": "rsa-private-poll-bot.pem"
 }
+```
+
+Fill up `src/main/resources/application.properties` with the appropriate values for
+the uri of your MongoDB instance.
+```properties
+...
+spring.data.mongodb.uri=mongodb+srv://user:pass@mongodb/admin
 ```
