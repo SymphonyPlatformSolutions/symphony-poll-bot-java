@@ -5,6 +5,7 @@ import com.symphony.ps.pollbot.model.PollResult;
 import com.symphony.ps.pollbot.model.PollVote;
 import com.symphony.ps.pollbot.repository.PollRepository;
 import com.symphony.ps.pollbot.repository.PollVoteRepository;
+import java.time.Instant;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
@@ -37,6 +38,7 @@ public class DataService {
 
     void endPoll(long userId) {
         Poll poll = getActivePoll(userId);
+        poll.setEnded(Instant.now());
         pollRepository.save(poll);
     }
 

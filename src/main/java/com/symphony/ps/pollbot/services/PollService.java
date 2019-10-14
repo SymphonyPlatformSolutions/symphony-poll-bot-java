@@ -278,7 +278,7 @@ public class PollService {
     }
 
     private void handleEndPoll(String streamId, long userId, String displayName) {
-        log.info("End poll requested by {}", displayName);
+        log.info("End poll requested by {}", displayName != null ? displayName : "[Timer]");
 
         Poll poll = dataService.getActivePoll(userId);
         if (poll == null) {
@@ -322,7 +322,7 @@ public class PollService {
         }
 
         dataService.endPoll(poll.getCreator());
-        PollBot.sendMessage(streamId, response, data);
+        PollBot.sendMessage(poll.getStreamId(), response, data);
     }
 
     private void handleHistory(String streamId, StreamTypes streamType, long userId, String displayName) {
