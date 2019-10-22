@@ -60,6 +60,9 @@ spec:
         - name: bot-key
           mountPath: /data/symphony/rsa
           readOnly: true
+        - name: datafeed-pvc
+          mountPath: /data/symphony/datafeed.id
+          subPath: poll-bot.id
         - name: logs
           mountPath: /data/symphony/logs
       volumes:
@@ -75,6 +78,9 @@ spec:
           items:
           - key: private-key.pkcs8
             path: private-key.pkcs8
+      - name: datafeed-pvc
+        persistentVolumeClaim:
+          claimName: bots-pv-claim
       - name: logs
         emptyDir: {}
       dnsPolicy: ClusterFirst

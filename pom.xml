@@ -42,7 +42,7 @@
         <dependency>
             <groupId>com.symphony.platformsolutions</groupId>
             <artifactId>symphony-api-client-java</artifactId>
-            <version>1.0.43</version>
+            <version>1.0.45</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
