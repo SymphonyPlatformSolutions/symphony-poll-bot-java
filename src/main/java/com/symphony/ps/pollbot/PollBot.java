@@ -32,7 +32,7 @@ public class PollBot {
 
             log.info("Bot is ready.");
         } catch (Exception e) {
-            log.error("Error", e);
+            log.error("Error: {}", e.getMessage());
         }
     }
 
@@ -57,7 +57,7 @@ public class PollBot {
             server.start();
             log.info("Health check endpoint is up");
         } catch (IOException e) {
-            log.error("Unable to start health check", e);
+            log.error("Unable to start health check: {}", e.getMessage());
         }
     }
 

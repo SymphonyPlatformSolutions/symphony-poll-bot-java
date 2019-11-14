@@ -12,6 +12,7 @@ import model.OutboundMessage;
 import model.StreamTypes;
 import model.User;
 import model.events.SymphonyElementsAction;
+import org.apache.commons.text.StringEscapeUtils;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -135,7 +136,7 @@ public class PollService {
         Map<String, String> answersMap = new HashMap<>();
         formValues.entrySet().stream()
             .filter(k -> k.getKey().startsWith("option"))
-            .map(entry -> entry.getValue().toString().trim())
+            .map(entry -> StringEscapeUtils.escapeHtml4(entry.getValue().toString().trim()))
             .filter(answer -> !answer.isEmpty())
             .forEach(answer -> answersMap.putIfAbsent(answer.toLowerCase(), answer));
         List<String> answers = new ArrayList<>(answersMap.values());
@@ -167,7 +168,7 @@ public class PollService {
             .creator(initiator.getUserId())
             .created(Instant.now())
             .timeLimit(timeLimit)
-            .questionText(formValues.get("question").toString())
+            .questionText(StringEscapeUtils.escapeHtml4(formValues.get("question").toString()))
             .streamId(action.getStreamId())
             .participants(participants)
             .answers(answers)

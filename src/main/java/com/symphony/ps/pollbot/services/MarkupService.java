@@ -57,7 +57,7 @@ class MarkupService {
         try {
             return mapper.writeValueAsString(map);
         } catch (JsonProcessingException e) {
-            log.error("Unable to wrap data object", e);
+            log.error("Unable to wrap data object: {}", e.getMessage());
             return null;
         }
     }
