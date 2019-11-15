@@ -30,9 +30,10 @@
             <person-selector name="audience" placeholder="Select audience.." required="true" />
         </#if>
 
-        <#if entity["poll"].showTargetStream>
+        <#if entity["poll"].targetStreamId??>
             <h6>Room Stream ID</h6>
-            <text-field name="targetStreamId" placeholder="Enter room stream id.." required="true" minlength="32" maxlength="38" />
+            <text-field name="targetStreamId" placeholder="Enter room stream id.."
+                required="true">${entity['poll'].targetStreamId}</text-field>
         </#if>
 
         <h6>Time Limit</h6>

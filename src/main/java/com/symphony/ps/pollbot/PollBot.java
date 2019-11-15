@@ -7,6 +7,8 @@ import com.symphony.ps.pollbot.listeners.IMListenerImpl;
 import com.symphony.ps.pollbot.listeners.RoomListenerImpl;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.HashMap;
+import java.util.Map;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import model.OutboundMessage;
@@ -18,6 +20,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class PollBot {
     @Getter
     private static SymBotClient botClient;
+    private static Map<Long, String> userImMap = new HashMap<>();
 
     public PollBot(IMListenerImpl imListener, RoomListenerImpl roomListener, ElementsListenerImpl elementsListener) {
         try {
@@ -42,6 +45,15 @@ public class PollBot {
 
     public static void sendMessage(String streamId, String message, String data) {
         botClient.getMessagesClient().sendMessage(streamId, new OutboundMessage(message, data));
+    }
+
+    public static String getImStreamId(long userId) {
+        if (userImMap.containsKey(userId)) {
+            return userImMap.get(userId);
+        }
+        String streamId = botClient.getStreamsClient().getUserIMStreamId(userId);
+        userImMap.putIfAbsent(userId, streamId);
+        return streamId;
     }
 
     private void startHealthCheckServer() {
