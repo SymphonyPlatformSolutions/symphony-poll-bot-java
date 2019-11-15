@@ -19,6 +19,11 @@ public class PollResult extends PollData {
     }
 
     @Override
+    public String toString() {
+        return "{" + answer + "=" + count + '}';
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) { return true; }
         if (!(o instanceof PollResult)) { return false; }

@@ -27,10 +27,10 @@ public class PollHistoryItem {
         .withZone(ZoneId.of("UTC"));
 
     public String getCreated() {
-        return formatter.format(created);
+        return created != null ? formatter.format(created) : "Not Started";
     }
 
     public String getEnded() {
-        return formatter.format(ended);
+        return ended != null ? formatter.format(ended) : "Not Ended";
     }
 }
