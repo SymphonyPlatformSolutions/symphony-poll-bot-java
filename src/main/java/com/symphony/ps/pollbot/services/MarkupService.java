@@ -36,8 +36,8 @@ class MarkupService {
         }
     }
 
-    static String getPollCreateData(boolean showPersonSelector, int count, List<Integer> timeLimits) {
-        return wrapData(new PollCreateData(count, timeLimits, showPersonSelector));
+    static String getPollCreateData(boolean showPersonSelector, boolean showTargetStream, int count, List<Integer> timeLimits) {
+        return wrapData(new PollCreateData(showPersonSelector, showTargetStream, count, timeLimits));
     }
 
     static String getPollBlastData(Poll poll) {

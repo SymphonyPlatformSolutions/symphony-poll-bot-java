@@ -2,15 +2,17 @@ package com.symphony.ps.pollbot.services;
 
 import com.symphony.ps.pollbot.PollBot;
 import com.symphony.ps.pollbot.model.*;
+import exceptions.ForbiddenException;
+import exceptions.SymClientException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import model.InboundMessage;
-import model.OutboundMessage;
-import model.StreamTypes;
-import model.User;
+import model.*;
 import model.events.SymphonyElementsAction;
 import org.apache.commons.text.StringEscapeUtils;
 import org.springframework.stereotype.Service;
@@ -73,6 +75,7 @@ public class PollService {
     private static PollConfig parseConfigInput(String streamId, String[] inputs) {
         int options = 6;
         List<Integer> timeLimits = Arrays.asList(0, 2, 5);
+        boolean targetStream = false;
 
         for (String input : inputs) {
             if (input.matches("^\\d+$")) {
@@ -91,9 +94,11 @@ public class PollService {
                     PollBot.sendMessage(streamId, "Number of time limits should be 10 or lower");
                     return null;
                 }
+            } else if (input.equalsIgnoreCase("room")) {
+                targetStream = true;
             }
         }
-        return new PollConfig(options, timeLimits);
+        return new PollConfig(options, timeLimits, targetStream);
     }
 
     private boolean userHasActivePoll(User user, String streamId) {
@@ -114,9 +119,14 @@ public class PollService {
         }
         log.info("Get new poll form via {} requested by {}", streamType, user.getDisplayName());
 
-        boolean isIM = streamType == StreamTypes.IM;
+        boolean showPersonSelector = !pollConfig.isTargetStream() && streamType == StreamTypes.IM;
         String pollML = MarkupService.pollCreateTemplate;
-        String data = MarkupService.getPollCreateData(isIM, pollConfig.getOptions(), pollConfig.getTimeLimits());
+        String data = MarkupService.getPollCreateData(
+            showPersonSelector,
+            pollConfig.isTargetStream(),
+            pollConfig.getOptions(),
+            pollConfig.getTimeLimits()
+        );
         PollBot.sendMessage(streamId, pollML, data);
 
         log.info("New poll form sent to {} stream {}", streamType, streamId);
@@ -149,6 +159,47 @@ public class PollService {
             return;
         }
 
+        // Validate stream id if provided
+        String targetStreamId = action.getStreamId();
+        if (formValues.containsKey("targetStreamId")) {
+            StreamInfo streamInfo = null;
+            String tryTargetStreamId = formValues.get("targetStreamId").toString().trim()
+                .replaceAll("[=]+$", "")
+                .replaceAll("\\+", "-")
+                .replaceAll("/", "_");
+            try {
+                tryTargetStreamId = URLEncoder.encode(tryTargetStreamId, StandardCharsets.UTF_8.name());
+                log.info("Looking up stream id: {}", tryTargetStreamId);
+                streamInfo = PollBot.getBotClient().getStreamsClient().getStreamInfo(tryTargetStreamId);
+            } catch (UnsupportedEncodingException e) {
+                log.error("Unable to URI encode stream id: {}", tryTargetStreamId);
+            } catch (SymClientException e) {
+                log.info("Invalid stream id: {}", tryTargetStreamId);
+            }
+
+            boolean isMember = false;
+            if (streamInfo != null && streamInfo.getStreamType().getType() == StreamTypes.ROOM) {
+                try {
+                    isMember = PollBot.getBotClient().getStreamsClient().getRoomMembers(tryTargetStreamId) != null;
+                    targetStreamId = tryTargetStreamId;
+                    log.info("Using stream id for room: {}", streamInfo.getRoomAttributes().getName());
+                } catch (ForbiddenException e) {
+                    log.error("I am not a member of this room: {}", tryTargetStreamId);
+                }
+            }
+
+            if (streamInfo == null || streamInfo.getStreamType().getType() != StreamTypes.ROOM || !isMember) {
+                String rejectMsg = String.format("<mention uid=\"%d\"/> Your poll's room stream id is invalid",
+                    initiator.getUserId());
+                PollBot.sendMessage(action.getStreamId(), rejectMsg);
+
+                if (streamInfo != null) {
+                    log.info("Stream id is not a room: {}", tryTargetStreamId);
+                }
+                return;
+            }
+        }
+
         // Obtain IM stream IDs if audience is specified
         List<PollParticipant> participants = null;
         if (formValues.get("audience") != null) {
@@ -169,7 +220,7 @@ public class PollService {
             .created(Instant.now())
             .timeLimit(timeLimit)
             .questionText(StringEscapeUtils.escapeHtml4(formValues.get("question").toString()))
-            .streamId(action.getStreamId())
+            .streamId(targetStreamId)
             .participants(participants)
             .answers(answers)
             .build();
@@ -184,7 +235,7 @@ public class PollService {
                 participant -> PollBot.sendMessage(participant.getImStreamId(), blastPollML, blastPollData)
             );
         } else {
-            PollBot.sendMessage(action.getStreamId(), blastPollML, blastPollData);
+            PollBot.sendMessage(targetStreamId, blastPollML, blastPollData);
         }
 
         // Start timer

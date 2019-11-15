@@ -10,6 +10,7 @@ import lombok.Data;
 public class PollConfig {
     private int options;
     private List<Integer> timeLimits;
+    private boolean targetStream;
 
     public PollConfig() {
         options = 6;

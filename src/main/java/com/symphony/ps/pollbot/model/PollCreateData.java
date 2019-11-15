@@ -9,7 +9,8 @@ import lombok.EqualsAndHashCode;
 @EqualsAndHashCode(callSuper = true)
 @AllArgsConstructor
 public class PollCreateData extends PollData {
+    private boolean showPersonSelector;
+    private boolean showTargetStream;
     private int count;
     private List<Integer> timeLimits;
-    private boolean showPersonSelector;
 }
