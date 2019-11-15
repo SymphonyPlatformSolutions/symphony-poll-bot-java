@@ -28,6 +28,7 @@ public class PollService {
 
     private static final String helpML = "<ul>" +
         "<li><b>/poll</b>: Get a standard create poll form</li>" +
+        "<li><b>/poll room</b>: Get a create poll form that targets a room via stream id</li>" +
         "<li><b>/poll 4 0,5,15</b>: Get a create poll form with 4 options and time limits of None, 5 and 15 minutes</li>" +
         "<li><b>/endpoll</b>: End your active poll</li>" +
         "<li><b>/history</b>: View your personal poll history</li></ul>";
@@ -37,12 +38,6 @@ public class PollService {
         String displayName = msg.getUser().getDisplayName();
         String streamId = msg.getStream().getStreamId();
         String[] msgParts = msg.getMessageText().trim().toLowerCase().split(" ", 2);
-        PollConfig pollConfig = (msgParts.length == 1) ? new PollConfig()
-            : parseConfigInput(streamId, msgParts[1].split(" "));
-
-        if (pollConfig == null) {
-            return;
-        }
 
         switch (msgParts[0]) {
             case "/help":
@@ -53,6 +48,12 @@ public class PollService {
 
             case "/poll":
             case "/createpoll":
+                PollConfig pollConfig = (msgParts.length == 1) ? new PollConfig()
+                    : parseConfigInput(streamId, msgParts[1].split(" "));
+
+                if (pollConfig == null) {
+                    return;
+                }
                 handleSendCreatePollForm(streamId, streamType, msg.getUser(), pollConfig);
                 break;
 
