@@ -14,8 +14,8 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import model.*;
 import model.events.SymphonyElementsAction;
-import org.apache.commons.text.StringEscapeUtils;
 import org.springframework.stereotype.Service;
+import utils.MessageUtils;
 
 @Slf4j
 @Service
@@ -155,7 +155,7 @@ public class PollService {
         Map<String, String> answersMap = new HashMap<>();
         formValues.entrySet().stream()
             .filter(k -> k.getKey().startsWith("option"))
-            .map(entry -> StringEscapeUtils.escapeHtml4(entry.getValue().toString().trim()))
+            .map(entry -> MessageUtils.escapeText(entry.getValue().toString().trim()))
             .filter(answer -> !answer.isEmpty())
             .forEach(answer -> answersMap.putIfAbsent(answer.toLowerCase(), answer));
         List<String> answers = new ArrayList<>(answersMap.values());
@@ -172,10 +172,8 @@ public class PollService {
         String targetStreamId = action.getStreamId();
         if (formValues.containsKey("targetStreamId")) {
             StreamInfo streamInfo = null;
-            String tryTargetStreamId = formValues.get("targetStreamId").toString().trim()
-                .replaceAll("[=]+$", "")
-                .replaceAll("\\+", "-")
-                .replaceAll("/", "_");
+            String tryTargetStreamId = MessageUtils.escapeStreamId(formValues.get("targetStreamId").toString());
+
             try {
                 tryTargetStreamId = URLEncoder.encode(tryTargetStreamId, StandardCharsets.UTF_8.name());
                 log.info("Looking up stream id: {}", tryTargetStreamId);
@@ -232,7 +230,7 @@ public class PollService {
             .creator(initiator.getUserId())
             .created(Instant.now())
             .timeLimit(timeLimit)
-            .questionText(StringEscapeUtils.escapeHtml4(formValues.get("question").toString()))
+            .questionText(MessageUtils.escapeText(formValues.get("question").toString()))
             .streamId(targetStreamId)
             .participants(participants)
             .answers(answers)
