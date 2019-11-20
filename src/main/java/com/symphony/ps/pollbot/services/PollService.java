@@ -289,10 +289,13 @@ public class PollService {
                     initiator.getUserId()
                 )
             );
-            log.info("Invalid vote cast by {} on {} stream {}",
-                initiator.getDisplayName(), action.getStreamType(), action.getStreamId());
+            log.info("Invalid vote cast by {} on stream {}",
+                initiator.getDisplayName(), action.getStreamId());
             return;
         }
+
+        String answer = poll.getAnswers().get(answerIndex);
+
         if (poll.getEnded() != null) {
             PollBot.sendMessage(
                 PollBot.getImStreamId(initiator.getUserId()),
@@ -301,11 +304,10 @@ public class PollService {
                     initiator.getUserId(), poll.getQuestionText()
                 )
             );
-            log.info("Vote cast on expired poll by {} on {} stream {}",
-                initiator.getDisplayName(), action.getStreamType(), action.getStreamId());
+            log.info("Rejected vote [{}] cast by {} in stream {} on expired poll: {}",
+                answer, initiator.getDisplayName(), action.getStreamId(), poll.getQuestionText());
             return;
         }
-        String answer = poll.getAnswers().get(answerIndex);
 
         String response, creatorNotification;
         if (dataService.hasVoted(initiator.getUserId(), pollId)) {
