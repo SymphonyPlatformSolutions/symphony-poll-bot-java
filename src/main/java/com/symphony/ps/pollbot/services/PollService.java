@@ -37,7 +37,12 @@ public class PollService {
         long userId = msg.getUser().getUserId();
         String displayName = msg.getUser().getDisplayName();
         String streamId = msg.getStream().getStreamId();
-        String[] msgParts = msg.getMessageText().trim().toLowerCase().split(" ", 2);
+        String msgText = msg.getMessageText();
+        if (msgText == null) {
+            log.info("Ignoring message as message text cannot be parsed");
+            return;
+        }
+        String[] msgParts = msgText.trim().toLowerCase().split(" ", 2);
 
         switch (msgParts[0]) {
             case "/help":
