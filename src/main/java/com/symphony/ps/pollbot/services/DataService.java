@@ -4,10 +4,7 @@ import com.symphony.ps.pollbot.model.*;
 import com.symphony.ps.pollbot.repository.PollRepository;
 import com.symphony.ps.pollbot.repository.PollVoteRepository;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -77,7 +74,7 @@ public class DataService {
                 match(new Criteria("pollId").is(pollId)),
                 group("answer").count().as("count"),
                 project("count").and("answer").previousOperation(),
-                sort(new Sort(Sort.Direction.DESC, "count"))
+                sort(Sort.by(new Sort.Order(Sort.Direction.DESC, "count")))
             ), "pollVote", PollResult.class)
             .getMappedResults();
     }
@@ -102,7 +99,7 @@ public class DataService {
                     .first("pollId").as("pollId")
                     .first("answer").as("answer"),
                 project("pollId", "answer", "count"),
-                sort(new Sort(Sort.Direction.DESC, "count"))
+                sort(Sort.by(new Sort.Order(Sort.Direction.DESC, "count")))
             ), "pollVote", PollResult.class)
             .getMappedResults();
 
