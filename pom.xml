@@ -6,7 +6,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.symphony.ps.pollbot</groupId>
     <artifactId>symphony-poll-bot-java</artifactId>
-    <version>1.1</version>
+    <version>1.2</version>
     <name>Symphony Poll Bot</name>
     <url>https://github.com/SymphonyPlatformSolutions/symphony-poll-bot-java</url>
     <description>Example bot for simple polling</description>
