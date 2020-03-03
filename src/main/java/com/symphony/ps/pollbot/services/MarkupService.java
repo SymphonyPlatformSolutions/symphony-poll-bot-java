@@ -11,9 +11,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
@@ -37,11 +35,11 @@ class MarkupService {
     }
 
     static String getPollCreateData(boolean showPersonSelector, String targetStreamId, int count, List<Integer> timeLimits) {
-        return wrapData(new PollCreateData(showPersonSelector, targetStreamId, count, timeLimits));
+        return convertToJsonString(new PollCreateData(showPersonSelector, targetStreamId, count, timeLimits));
     }
 
     static String getPollBlastData(Poll poll) {
-        return wrapData(new PollBlastData(
+        return convertToJsonString(new PollBlastData(
             poll.getId() + "",
             poll.getTimeLimit(),
             poll.getQuestionText(),
@@ -50,12 +48,9 @@ class MarkupService {
         ));
     }
 
-    static String wrapData(PollData data) {
-        Map<String, PollData> map = new HashMap<>();
-        map.put("poll", data);
-
+    static String convertToJsonString(PollData data) {
         try {
-            return mapper.writeValueAsString(map);
+            return mapper.writeValueAsString(data);
         } catch (JsonProcessingException e) {
             log.error("Unable to wrap data object: {}", e.getMessage());
             return null;

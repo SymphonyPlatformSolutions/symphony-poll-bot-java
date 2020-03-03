@@ -403,7 +403,7 @@ public class PollService {
                 .forEach(pollResults::add);
 
             response = MarkupService.pollResultsTemplate;
-            data = MarkupService.wrapData(PollResultsData.builder()
+            data = MarkupService.convertToJsonString(PollResultsData.builder()
                 .creatorId(poll.getCreator())
                 .question(poll.getQuestionText())
                 .results(pollResults)
@@ -429,6 +429,6 @@ public class PollService {
 
         String pollHistoryTemplate = MarkupService.pollHistoryTemplate;
 
-        PollBot.sendMessage(streamId, pollHistoryTemplate, MarkupService.wrapData(pollHistory));
+        PollBot.sendMessage(streamId, pollHistoryTemplate, MarkupService.convertToJsonString(pollHistory));
     }
 }
