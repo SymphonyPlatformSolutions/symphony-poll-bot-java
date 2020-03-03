@@ -157,7 +157,7 @@ public class PollService {
         log.info("New poll by {} creation in progress: {}", initiator.getDisplayName(), formValues.toString());
 
         // Collate options
-        Map<String, String> answersMap = new HashMap<>();
+        Map<String, String> answersMap = new LinkedHashMap<>();
         formValues.entrySet().stream()
             .filter(k -> k.getKey().startsWith("option"))
             .map(entry -> MessageUtils.escapeText(entry.getValue().toString().trim()))
