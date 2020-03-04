@@ -50,18 +50,20 @@ public class DataService {
         return pollRepository.findTopByCreatorAndEnded(userId, null);
     }
 
-    private List<Poll> getLastTenPolls(long userId) {
-        List<Poll> polls = pollRepository
-            .findAllByCreatorOrderByCreatedDesc(userId, PageRequest.of(0, 10));
+    private List<Poll> getHistoricalPolls(long userId, String streamId, int count) {
+        PageRequest page = PageRequest.of(0, count);
+        List<Poll> polls = (streamId != null) ?
+            pollRepository.findAllByCreatorAndStreamIdAndEndedIsNotNullOrderByCreatedDesc(userId, streamId, page) :
+            pollRepository.findAllByCreatorAndEndedIsNotNullOrderByCreatedDesc(userId, page);
         polls.sort(Comparator.comparing(Poll::getCreated));
         return polls;
     }
 
-    private List<Poll> getLastTenPolls(long userId, String streamId) {
-        List<Poll> polls = pollRepository
-            .findAllByCreatorAndStreamIdOrderByCreatedDesc(userId, streamId, PageRequest.of(0, 10));
-        polls.sort(Comparator.comparing(Poll::getCreated));
-        return polls;
+    private List<Poll> getActivePoll(long userId, String streamId) {
+        Poll poll = (streamId != null) ?
+            pollRepository.findTopByCreatorAndStreamIdAndEndedIsNullOrderByCreatedDesc(userId, streamId) :
+            pollRepository.findTopByCreatorAndEndedIsNullOrderByCreatedDesc(userId);
+        return poll == null ? new ArrayList<>() : Collections.singletonList(poll);
     }
 
     List<PollVote> getVotes(String pollId) {
@@ -79,9 +81,8 @@ public class DataService {
             .getMappedResults();
     }
 
-    PollHistory getPollHistory(long userId, String streamId, String displayName) {
-        boolean isRoom = streamId != null;
-        List<Poll> polls = isRoom ? getLastTenPolls(userId, streamId) : getLastTenPolls(userId);
+    PollHistory getPollHistory(long userId, String streamId, String displayName, int count, boolean isActive) {
+        List<Poll> polls = isActive ? getActivePoll(userId, streamId) : getHistoricalPolls(userId, streamId, count);
 
         if (polls.isEmpty()) {
             return null;
@@ -131,7 +132,7 @@ public class DataService {
         });
 
         return PollHistory.builder()
-            .room(isRoom)
+            .room(streamId != null)
             .creatorDisplayName(displayName)
             .polls(pollHistoryItems)
             .build();

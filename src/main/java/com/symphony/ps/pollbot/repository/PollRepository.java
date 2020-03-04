@@ -9,6 +9,8 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 public interface PollRepository extends MongoRepository<Poll, String> {
     long countByCreatorAndEnded(long creator, Instant ended);
     Poll findTopByCreatorAndEnded(long creator, Instant ended);
-    List<Poll> findAllByCreatorOrderByCreatedDesc(long creator, Pageable pageable);
-    List<Poll> findAllByCreatorAndStreamIdOrderByCreatedDesc(long creator, String streamId, Pageable pageable);
+    List<Poll> findAllByCreatorAndEndedIsNotNullOrderByCreatedDesc(long creator, Pageable pageable);
+    List<Poll> findAllByCreatorAndStreamIdAndEndedIsNotNullOrderByCreatedDesc(long creator, String streamId, Pageable pageable);
+    Poll findTopByCreatorAndEndedIsNullOrderByCreatedDesc(long creator);
+    Poll findTopByCreatorAndStreamIdAndEndedIsNullOrderByCreatedDesc(long creator, String streamId);
 }

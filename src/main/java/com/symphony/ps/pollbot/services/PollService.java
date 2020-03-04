@@ -31,7 +31,9 @@ public class PollService {
         "<li><b>/poll room</b>: Get a create poll form that targets a room via stream id</li>" +
         "<li><b>/poll 4 0,5,15</b>: Get a create poll form with 4 options and time limits of None, 5 and 15 minutes</li>" +
         "<li><b>/endpoll</b>: End your active poll</li>" +
-        "<li><b>/history</b>: View your personal poll history</li></ul>";
+        "<li><b>/history</b>: View your personal poll history</li>" +
+        "<li><b>/active</b>: Preview the results of your active poll</li>" +
+        "</ul>";
 
     public void handleIncomingMessage(InboundMessage msg, StreamTypes streamType) {
         long userId = msg.getUser().getUserId();
@@ -52,7 +54,6 @@ public class PollService {
                 break;
 
             case "/poll":
-            case "/createpoll":
                 PollConfig pollConfig = (msgParts.length == 1) ? new PollConfig()
                     : parseConfigInput(streamId, msgParts[1].split(" "));
 
@@ -71,7 +72,22 @@ public class PollService {
                 break;
 
             case "/history":
-                handleHistory(streamId, streamType, userId, displayName);
+                int count = 10;
+                if (msgParts.length > 1) {
+                    try {
+                        count = Integer.parseInt(msgParts[1]);
+                        if (count > 30) {
+                            throw new NumberFormatException();
+                        }
+                    } catch (NumberFormatException e) {
+                        PollBot.sendMessage(streamId, "Invalid history count provided, using 10 instead");
+                    }
+                }
+                handleHistory(streamId, streamType, userId, displayName, count, false);
+                break;
+
+            case "/active":
+                handleHistory(streamId, streamType, userId, displayName, 1, true);
                 break;
 
             default:
@@ -271,8 +287,8 @@ public class PollService {
         PollBot.sendMessage(
             PollBot.getImStreamId(initiator.getUserId()),
             String.format(
-                "<mention uid=\"%d\"/> Your poll has been created. You can use <b>/endpoll</b>%s to end this poll: <i>%s</i>",
-                initiator.getUserId(), endPollByTimerNote, poll.getQuestionText()
+                "Your poll has been created. You can use <b>/endpoll</b>%s to end this poll: <i>%s</i>",
+                endPollByTimerNote, poll.getQuestionText()
             )
         );
         log.info("New poll by {} creation complete", initiator.getDisplayName());
@@ -317,7 +333,8 @@ public class PollService {
             PollVote vote = PollVote.builder().pollId(pollId).answer(answer).userId(initiatorId).build();
             dataService.createVote(vote);
             response = String.format("Thanks for voting <b>%s</b> for the poll: <i>%s</i>", answer, poll.getQuestionText());
-            creatorNotification = String.format("has voted for: <b>%s</b>", answer);
+            creatorNotification = String.format("<mention uid=\"%d\"/> has voted <b>%s</b> for the poll: <i>%s</i> ",
+                initiatorId, answer, poll.getQuestionText());
             log.info("New vote [{}] cast on poll {} by {}", answer, poll.getId(), initiatorName);
         }
 
@@ -403,15 +420,22 @@ public class PollService {
         PollBot.sendMessage(poll.getStreamId(), response, data);
     }
 
-    private void handleHistory(String streamId, StreamTypes streamType, long userId, String displayName) {
-        log.info("Poll history requested by {}", displayName);
+    private void handleHistory(String streamId, StreamTypes streamType, long userId, String displayName, int count,
+                               boolean isActive) {
+        String noPollMsg = "You have no poll history%s.";
+        if (isActive) {
+            log.info("Active poll requested by {}", displayName);
+            noPollMsg = "You have no active poll%s.";
+        } else {
+            log.info("History of past {} polls requested by {}", count, displayName);
+        }
 
         String targetStreamId = streamType == StreamTypes.ROOM ? streamId : null;
-        PollHistory pollHistory = dataService.getPollHistory(userId, targetStreamId, displayName);
+        PollHistory pollHistory = dataService.getPollHistory(userId, targetStreamId, displayName, count, isActive);
 
         if (pollHistory == null) {
             String roomSuffix = streamType == StreamTypes.ROOM ? " for this room" : "";
-            PollBot.sendMessage(streamId, String.format("<mention uid=\"%d\"/> You have no poll history%s.", userId, roomSuffix));
+            PollBot.sendMessage(streamId, String.format(noPollMsg, roomSuffix));
             return;
         }
 

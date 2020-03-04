@@ -1,9 +1,10 @@
+<#if data.polls?size gt 1>
 <card accent="tempo-bg-color--blue">
     <header>
         <div style='display:flex;padding-top:8px'>
             <div><img src="https://symphony.com/wp-content/uploads/2019/08/favicon.png" style='height:20px' /></div>
             <div style='padding-top:1px;padding-left:5px;'>
-                <b>Last 10 Polls</b> from: <b>${data.creatorDisplayName}</b>
+                <b>Last ${data.polls?size} Polls</b> from: <b>${data.creatorDisplayName}</b>
                 <#if data.room == true>
                     in this room
                 </#if>
@@ -11,6 +12,7 @@
         </div>
     </header>
     <body>
+</#if>
         <table>
             <tr>
                 <th>Created/Ended (UTC)</th>
@@ -40,5 +42,7 @@
                 <tr style="height: 1px"><td colspan="5" style="padding:0;background: #bbb"></td></tr>
             </#list>
         </table>
+<#if data.polls?size gt 1>
     </body>
 </card>
+</#if>
