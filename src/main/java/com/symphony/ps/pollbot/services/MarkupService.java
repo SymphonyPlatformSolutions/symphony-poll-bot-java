@@ -44,7 +44,7 @@ class MarkupService {
             poll.getTimeLimit(),
             poll.getQuestionText(),
             poll.getAnswers(),
-            poll.getCreator()
+            poll.getCreatorDisplayName()
         ));
     }
 

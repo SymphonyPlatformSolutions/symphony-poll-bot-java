@@ -3,7 +3,7 @@
         <div style='display:flex;padding-top:8px'>
             <div><img src="https://symphony.com/wp-content/uploads/2019/08/favicon.png" style='height:20px' /></div>
             <div style='padding-top:1px;padding-left:5px;'>
-                <b>Last 10 Polls</b> from: <mention uid="${data.creatorId}" />
+                <b>Last 10 Polls</b> from: <b>${data.creatorDisplayName}</b>
                 <#if data.room == true>
                     in this room
                 </#if>

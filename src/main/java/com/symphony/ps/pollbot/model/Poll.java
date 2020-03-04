@@ -17,6 +17,7 @@ public class Poll {
     private Instant ended;
     private int timeLimit;
     private long creator;
+    private String creatorDisplayName;
     private String streamId;
     private String questionText;
     private List<PollParticipant> participants;

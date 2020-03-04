@@ -9,11 +9,7 @@ import lombok.EqualsAndHashCode;
 @Builder
 @EqualsAndHashCode(callSuper = true)
 public class PollHistory extends PollData {
-    private long creatorId;
+    private String creatorDisplayName;
     private boolean room;
     private List<PollHistoryItem> polls;
-
-    public String getCreatorId() {
-        return creatorId + "";
-    }
 }

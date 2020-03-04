@@ -79,7 +79,7 @@ public class DataService {
             .getMappedResults();
     }
 
-    PollHistory getPollHistory(long userId, String streamId) {
+    PollHistory getPollHistory(long userId, String streamId, String displayName) {
         boolean isRoom = streamId != null;
         List<Poll> polls = isRoom ? getLastTenPolls(userId, streamId) : getLastTenPolls(userId);
 
@@ -132,7 +132,7 @@ public class DataService {
 
         return PollHistory.builder()
             .room(isRoom)
-            .creatorId(userId)
+            .creatorDisplayName(displayName)
             .polls(pollHistoryItems)
             .build();
     }

@@ -13,9 +13,5 @@ public class PollBlastData extends PollData {
     private int timeLimit;
     private String question;
     private List<String> answers;
-    private long creatorId;
-
-    public String getCreatorId() {
-        return creatorId + "";
-    }
+    private String creatorDisplayName;
 }

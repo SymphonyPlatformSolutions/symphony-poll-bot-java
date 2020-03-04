@@ -8,10 +8,6 @@ import lombok.Data;
 @Builder
 public class PollResultsData extends PollData {
     private String question;
-    private long creatorId;
+    private String creatorDisplayName;
     private List<PollResult> results;
-
-    public String getCreatorId() {
-        return creatorId + "";
-    }
 }

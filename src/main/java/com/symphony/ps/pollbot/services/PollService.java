@@ -233,6 +233,7 @@ public class PollService {
         // Create poll object and persist to database
         Poll poll = Poll.builder()
             .creator(initiator.getUserId())
+            .creatorDisplayName(initiator.getDisplayName())
             .created(Instant.now())
             .timeLimit(timeLimit)
             .questionText(MessageUtils.escapeText(formValues.get("question").toString()))
@@ -284,58 +285,44 @@ public class PollService {
         String pollId = action.getFormId().replace("poll-blast-form-", "");
         Poll poll = dataService.getPoll(pollId);
 
+        long initiatorId = initiator.getUserId();
+        String initiatorName = initiator.getDisplayName();
+        String initiatorStreamId = PollBot.getImStreamId(initiatorId);
+
         if (poll == null) {
-            PollBot.sendMessage(
-                PollBot.getImStreamId(initiator.getUserId()),
-                String.format(
-                    "<mention uid=\"%d\"/> You have submitted a vote for an invalid poll",
-                    initiator.getUserId()
-                )
-            );
-            log.info("Invalid vote cast by {} on stream {}",
-                initiator.getDisplayName(), action.getStreamId());
+            PollBot.sendMessage(initiatorStreamId, "You have submitted a vote for an invalid poll");
+            log.info("Invalid vote cast by {} on stream {}", initiatorName, action.getStreamId());
             return;
         }
 
         String answer = poll.getAnswers().get(answerIndex);
 
         if (poll.getEnded() != null) {
-            PollBot.sendMessage(
-                PollBot.getImStreamId(initiator.getUserId()),
-                String.format(
-                    "<mention uid=\"%d\"/> This poll has ended and no longer accepts votes: <i>%s</i>",
-                    initiator.getUserId(), poll.getQuestionText()
-                )
-            );
+            String pollEndedMsg = String.format("This poll has ended and no longer accepts votes: <i>%s</i>",
+                poll.getQuestionText());
+            PollBot.sendMessage(initiatorStreamId, pollEndedMsg);
             log.info("Rejected vote [{}] cast by {} in stream {} on expired poll: {}",
-                answer, initiator.getDisplayName(), action.getStreamId(), poll.getQuestionText());
+                answer, initiatorName, action.getStreamId(), poll.getQuestionText());
             return;
         }
 
         String response, creatorNotification;
-        if (dataService.hasVoted(initiator.getUserId(), pollId)) {
-            dataService.changeVote(initiator.getUserId(), pollId, answer);
+        if (dataService.hasVoted(initiatorId, pollId)) {
+            dataService.changeVote(initiatorId, pollId, answer);
             response = String.format("Your vote has been updated to <b>%s</b> for the poll: <i>%s</i>",
                 answer, poll.getQuestionText());
             creatorNotification = String.format("has changed their vote to: <b>%s</b>", answer);
-            log.info("Vote updated to [{}] on poll {} by {}", answer, poll.getId(), initiator.getDisplayName());
+            log.info("Vote updated to [{}] on poll {} by {}", answer, poll.getId(), initiatorName);
         } else {
-            PollVote vote = PollVote.builder()
-                .pollId(pollId)
-                .answer(answer)
-                .userId(initiator.getUserId())
-                .build();
+            PollVote vote = PollVote.builder().pollId(pollId).answer(answer).userId(initiatorId).build();
             dataService.createVote(vote);
-            response = String.format("Thanks for voting <b>%s</b> for the poll: <i>%s</i>",
-                answer, poll.getQuestionText());
+            response = String.format("Thanks for voting <b>%s</b> for the poll: <i>%s</i>", answer, poll.getQuestionText());
             creatorNotification = String.format("has voted for: <b>%s</b>", answer);
-            log.info("New vote [{}] cast on poll {} by {}", answer, poll.getId(), initiator.getDisplayName());
+            log.info("New vote [{}] cast on poll {} by {}", answer, poll.getId(), initiatorName);
         }
 
-        PollBot.sendMessage(PollBot.getImStreamId(initiator.getUserId()),
-            String.format("<mention uid=\"%d\"/> %s", initiator.getUserId(), response));
-        PollBot.sendMessage(PollBot.getImStreamId(poll.getCreator()),
-            String.format("<mention uid=\"%d\"/> %s", initiator.getUserId(), creatorNotification));
+        PollBot.sendMessage(initiatorStreamId, response);
+        PollBot.sendMessage(PollBot.getImStreamId(poll.getCreator()), creatorNotification);
     }
 
     private void handleRigPoll(String streamId, long userId, String displayName) {
@@ -404,7 +391,7 @@ public class PollService {
 
             response = MarkupService.pollResultsTemplate;
             data = MarkupService.convertToJsonString(PollResultsData.builder()
-                .creatorId(poll.getCreator())
+                .creatorDisplayName(poll.getCreatorDisplayName())
                 .question(poll.getQuestionText())
                 .results(pollResults)
                 .build());
@@ -419,7 +406,8 @@ public class PollService {
     private void handleHistory(String streamId, StreamTypes streamType, long userId, String displayName) {
         log.info("Poll history requested by {}", displayName);
 
-        PollHistory pollHistory = dataService.getPollHistory(userId, streamType == StreamTypes.ROOM ? streamId : null);
+        String targetStreamId = streamType == StreamTypes.ROOM ? streamId : null;
+        PollHistory pollHistory = dataService.getPollHistory(userId, targetStreamId, displayName);
 
         if (pollHistory == null) {
             String roomSuffix = streamType == StreamTypes.ROOM ? " for this room" : "";
