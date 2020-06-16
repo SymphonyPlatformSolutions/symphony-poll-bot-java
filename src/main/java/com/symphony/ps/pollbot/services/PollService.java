@@ -2,9 +2,6 @@ package com.symphony.ps.pollbot.services;
 
 import com.symphony.ps.pollbot.PollBot;
 import com.symphony.ps.pollbot.model.*;
-import exceptions.ForbiddenException;
-import exceptions.SymClientException;
-import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -145,6 +142,12 @@ public class PollService {
         String targetStreamId = null;
         if (streamType == StreamTypes.ROOM) {
             targetStreamId = streamId;
+            RoomInfo roomInfo = PollBot.getBotClient().getStreamsClient().getRoomInfo(targetStreamId);
+            if (roomInfo.getRoomAttributes().getReadOnly()) {
+                String imStreamId = PollBot.getImStreamId(user.getUserId());
+                PollBot.sendMessage(imStreamId, "Unable to create poll in a read-only room");
+                return;
+            }
         } else if (pollConfig.isTargetStream()) {
             targetStreamId = "";
         }
@@ -192,44 +195,31 @@ public class PollService {
         // Validate stream id if provided
         String targetStreamId = action.getStreamId();
         if (formValues.containsKey("targetStreamId")) {
-            StreamInfo streamInfo = null;
             String tryTargetStreamId = MessageUtils.escapeStreamId(formValues.get("targetStreamId").toString());
+            String rejectMsg = null;
 
             try {
-                tryTargetStreamId = URLEncoder.encode(tryTargetStreamId, StandardCharsets.UTF_8.name());
                 log.info("Looking up stream id: {}", tryTargetStreamId);
-                streamInfo = PollBot.getBotClient().getStreamsClient().getStreamInfo(tryTargetStreamId);
-            } catch (UnsupportedEncodingException e) {
-                log.error("Unable to URI encode stream id: {}", tryTargetStreamId);
-            } catch (SymClientException e) {
-                log.info("Invalid stream id: {}", tryTargetStreamId);
-            }
+                RoomInfo roomInfo = PollBot.getBotClient().getStreamsClient().getRoomInfo(tryTargetStreamId);
 
-            boolean isMember = false;
-            if (streamInfo != null && streamInfo.getStreamType().getType() == StreamTypes.ROOM) {
-                try {
-                    isMember = PollBot.getBotClient().getStreamsClient().getRoomMembers(tryTargetStreamId) != null;
-                    targetStreamId = tryTargetStreamId;
-                    log.info("Using stream id for room: {}", streamInfo.getRoomAttributes().getName());
-                } catch (ForbiddenException e) {
-                    log.error("I am not a member of this room: {}", tryTargetStreamId);
+                if (PollBot.getBotClient().getStreamsClient().getRoomMembers(tryTargetStreamId) == null) {
+                    rejectMsg = "I am not a member in that room";
+                } else if (roomInfo.getRoomAttributes().getReadOnly()) {
+                    rejectMsg = "Room is read-only";
                 }
+            } catch (Exception e) {
+                log.info("Invalid stream id: {}", tryTargetStreamId);
+                rejectMsg = "Your room stream id is invalid";
             }
 
-            if (streamInfo == null || streamInfo.getStreamType().getType() != StreamTypes.ROOM || !isMember) {
-                String rejectMsg = (streamInfo == null || streamInfo.getStreamType().getType() != StreamTypes.ROOM) ?
-                    "Your room stream id is invalid" : "I am not a member in that room";
-
+            if (rejectMsg != null) {
                 PollBot.sendMessage(
                     PollBot.getImStreamId(initiator.getUserId()),
                     String.format("<mention uid=\"%d\"/> %s: <b>%s</b>", initiator.getUserId(), rejectMsg, tryTargetStreamId)
                 );
-
-                if (streamInfo != null) {
-                    log.info("Stream id is not a room: {}", tryTargetStreamId);
-                }
                 return;
             }
+            targetStreamId = tryTargetStreamId;
         }
 
         // Obtain IM stream IDs if audience is specified
@@ -378,6 +368,7 @@ public class PollService {
         Poll poll = dataService.getActivePoll(userId);
         if (poll == null) {
             if (streamId != null) {
+                streamId = PollBot.getImStreamId(userId);
                 PollBot.sendMessage(streamId, "You have no active poll to end");
                 log.info("User {} has no active poll to end", displayName);
             } else {
