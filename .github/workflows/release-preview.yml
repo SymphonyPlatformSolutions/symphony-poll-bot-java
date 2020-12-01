@@ -1,0 +1,46 @@
+name: Release to Preview
+
+on:
+  push:
+    branches:
+      - preview
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 15
+      - uses: actions/cache@v1
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+      - name: Derive version
+        id: deriveVersion
+        run: |
+          export MVN_VER=`sed -n 's/\s\+<version>\([0-9\.]\+\)<.*/\1/p' pom.xml|head -1`
+          export TIMESTAMP=`TZ=Asia/Singapore date +'%m%d-%H%M'`
+          echo "TAG_VERSION=$MVN_VER-$TIMESTAMP" >> $GITHUB_ENV
+      - run: mvn clean compile package
+      - uses: docker/setup-buildx-action@v1
+      - uses: docker/login-action@v1
+        with:
+          registry: ${{ secrets.DEV_DOCKER_REGISTRY }}
+          username: _json_key
+          password: ${{ secrets.DEV_DOCKER_AUTH }}
+      - uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DEV_DOCKER_REGISTRY }}/${{ secrets.DOCKER_REPOSITORY }}:${{ env.TAG_VERSION }}
+      - uses: google-github-actions/setup-gcloud@master
+        with:
+          project_id: ${{ secrets.DEV_GKE_PROJECT }}
+          service_account_key: ${{ secrets.DEV_DOCKER_AUTH }}
+      - run: |
+          gcloud container clusters get-credentials ${{ secrets.DEV_GKE_CLUSTER }} --zone ${{ secrets.DEV_GKE_ZONE }}
+          kubectl set image deployments/${{ SECRETS.DEV_GKE_DEPLOYMENT }} ${{ SECRETS.DEV_GKE_DEPLOYMENT }}=${{ secrets.DEV_DOCKER_REGISTRY }}/${{ secrets.DOCKER_REPOSITORY }}:${{ env.TAG_VERSION }}
+          kubectl rollout status deployment/${{ SECRETS.DEV_GKE_DEPLOYMENT }}
