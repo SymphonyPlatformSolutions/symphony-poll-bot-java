@@ -317,7 +317,8 @@ public class PollService {
             dataService.changeVote(initiatorId, pollId, answer);
             response = String.format("Your vote has been updated to <b>%s</b> for the poll: <i>%s</i>",
                 answer, poll.getQuestionText());
-            creatorNotification = String.format("has changed their vote to: <b>%s</b>", answer);
+            creatorNotification = String.format("<mention uid=\"%d\"/> has changed their vote to: <b>%s</b>",
+                initiatorId, answer);
             log.info("Vote updated to [{}] on poll {} by {}", answer, poll.getId(), initiatorName);
         } else {
             PollVote vote = PollVote.builder().pollId(pollId).answer(answer).userId(initiatorId).build();
