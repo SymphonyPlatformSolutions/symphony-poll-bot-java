@@ -15,17 +15,21 @@ import org.springframework.stereotype.Component;
 @Component
 public class RealTimeEventComponent {
 
-    @Autowired
-    private PollService pollService;
+    private final PollService pollService;
 
-    @Autowired
-    private MessageService messageService;
+    private final MessageService messageService;
+
+    public RealTimeEventComponent(MessageService messageService, PollService pollService) {
+        this.messageService = messageService;
+        this.pollService = pollService;
+    }
 
     @EventListener
     public void onMessageSent(RealTimeEvent<V4MessageSent> event) throws PresentationMLParserException {
-        pollService.handleIncomingMessage(
-                event.getSource().getMessage(),
-                StreamType.TypeEnum.fromValue(event.getSource().getMessage().getStream().getStreamType()));
+        StreamType.TypeEnum streamType = StreamType.TypeEnum.fromValue(event.getSource().getMessage().getStream().getStreamType());
+        if (StreamType.TypeEnum.IM.equals(streamType) || StreamType.TypeEnum.ROOM.equals(streamType)) {
+            pollService.handleIncomingMessage(event.getSource().getMessage(), streamType);
+        }
     }
 
     @EventListener

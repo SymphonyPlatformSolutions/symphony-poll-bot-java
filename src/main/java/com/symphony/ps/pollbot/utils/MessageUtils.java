@@ -1,7 +1,5 @@
 package com.symphony.ps.pollbot.utils;
 
-import org.apache.commons.lang3.StringUtils;
-
 import java.util.LinkedHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -37,7 +35,7 @@ public class MessageUtils {
         tokens.put("\\{", "&#123;");
         tokens.put("\\}", "&#125;");
 
-        pattern = Pattern.compile("(" + StringUtils.join(tokens.keySet(), "|") + ")");
+        pattern = Pattern.compile("(" + String.join("|", tokens.keySet()) + ")");
     }
 
     public static String escapeText(String rawText) {
