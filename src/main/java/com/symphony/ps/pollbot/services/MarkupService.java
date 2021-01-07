@@ -16,6 +16,7 @@ class MarkupService {
     static String pollCreateTemplate = "/poll-create-form.ftl";
     static String pollBlastTemplate = "/poll-blast-form.ftl";
     static String pollResultsTemplate = "/poll-results.ftl";
+    static String pollResultsEmptyTemplate = "/poll-results-empty.ftl";
     static String pollHistoryTemplate = "/poll-history.ftl";
 
     static Map<String, PollData> getPollCreateData(boolean showPersonSelector, String targetStreamId, int count, List<Integer> timeLimits) {

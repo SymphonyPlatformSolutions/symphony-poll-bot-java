@@ -394,10 +394,11 @@ public class PollService {
 
         List<PollVote> votes = dataService.getVotes(poll.getId());
         String response;
-        Map<String, PollData> data = null;
+        Map<String, Object> data;
 
         if (votes.isEmpty()) {
-            response = String.format("<mention uid=\"%d\" /> Poll ended but with no results to show", poll.getCreator());
+            response = MarkupService.pollResultsEmptyTemplate;
+            data = Collections.singletonMap("uid", poll.getCreator() + "");
             log.info("Poll {} ended with no votes", poll.getId());
         } else {
             // Aggregate vote results
@@ -415,21 +416,17 @@ public class PollService {
 
             response = MarkupService.pollResultsTemplate;
             data = Collections.singletonMap("data", PollResultsData.builder()
-                    .creatorDisplayName(poll.getCreatorDisplayName())
-                    .question(poll.getQuestionText())
-                    .results(pollResults)
-                    .build());
+                .creatorDisplayName(poll.getCreatorDisplayName())
+                .question(poll.getQuestionText())
+                .results(pollResults)
+                .build());
 
             log.info("Poll {} ended with results {}", poll.getId(), pollResults.toString());
         }
 
         dataService.endPoll(poll.getCreator());
         Template template = messageService.templates().newTemplateFromClasspath(response);
-        if (data != null) {
-            messageService.send(poll.getStreamId(), Message.builder().template(template, data).build());
-        } else {
-            messageService.send(poll.getStreamId(), Message.builder().template(template).build());
-        }
+        messageService.send(poll.getStreamId(), Message.builder().template(template, data).build());
     }
 
     private void handleHistory(String streamId, StreamType.TypeEnum streamType, long userId, String displayName, int count,
