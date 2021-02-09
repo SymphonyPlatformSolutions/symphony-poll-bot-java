@@ -9,6 +9,7 @@ import com.symphony.bdk.gen.api.model.*;
 import com.symphony.bdk.template.api.Template;
 import com.symphony.ps.pollbot.model.*;
 import com.symphony.ps.pollbot.utils.MessageUtils;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -17,28 +18,18 @@ import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
+import static java.util.Collections.singletonMap;
+
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class PollService {
+
+    private static final Map<Long, String> userImMap = new HashMap<>();
+
     private final DataService dataService;
     private final StreamService streamService;
     private final MessageService messageService;
-    private static final Map<Long, String> userImMap = new HashMap<>();
-
-    public PollService(DataService dataService, StreamService streamService, MessageService messageService) {
-        this.dataService = dataService;
-        this.streamService = streamService;
-        this.messageService = messageService;
-    }
-
-    private static final String helpML = "<ul>" +
-        "<li><b>/poll</b>: Get a standard create poll form</li>" +
-        "<li><b>/poll room</b>: Get a create poll form that targets a room via stream id</li>" +
-        "<li><b>/poll 4 0,5,15</b>: Get a create poll form with 4 options and time limits of None, 5 and 15 minutes</li>" +
-        "<li><b>/endpoll</b>: End your active poll</li>" +
-        "<li><b>/history</b>: View your personal poll history</li>" +
-        "<li><b>/active</b>: Preview the results of your active poll</li>" +
-        "</ul>";
 
     public void handleIncomingMessage(V4Message msg, StreamType.TypeEnum streamType) throws PresentationMLParserException {
         long userId = msg.getUser().getUserId();
@@ -52,12 +43,6 @@ public class PollService {
         String[] msgParts = msgText.trim().toLowerCase().split(" ", 2);
 
         switch (msgParts[0]) {
-            case "/help":
-                String helpMLForStream = streamType == StreamType.TypeEnum.IM ? helpML
-                    : helpML.replace("</li></ul>", " for this room</li></ul>");
-                messageService.send(streamId, helpMLForStream);
-                break;
-
             case "/poll":
                 PollConfig pollConfig = (msgParts.length == 1) ? new PollConfig()
                     : parseConfigInput(streamId, msgParts[1].split(" "));
@@ -398,7 +383,7 @@ public class PollService {
 
         if (votes.isEmpty()) {
             response = MarkupService.pollResultsEmptyTemplate;
-            data = Collections.singletonMap("uid", poll.getCreator() + "");
+            data = singletonMap("uid", poll.getCreator() + "");
             log.info("Poll {} ended with no votes", poll.getId());
         } else {
             // Aggregate vote results
@@ -415,7 +400,7 @@ public class PollService {
                 .forEach(pollResults::add);
 
             response = MarkupService.pollResultsTemplate;
-            data = Collections.singletonMap("data", PollResultsData.builder()
+            data = singletonMap("data", PollResultsData.builder()
                 .creatorDisplayName(poll.getCreatorDisplayName())
                 .question(poll.getQuestionText())
                 .results(pollResults)
@@ -449,7 +434,7 @@ public class PollService {
         }
 
         Template template = messageService.templates().newTemplateFromClasspath(MarkupService.pollHistoryTemplate);
-        Map<String, PollData> data = Collections.singletonMap("data", pollHistory);
+        Map<String, PollData> data = singletonMap("data", pollHistory);
         messageService.send(streamId, Message.builder().template(template, data).build());
     }
 

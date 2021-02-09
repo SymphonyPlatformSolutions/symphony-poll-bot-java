@@ -1,0 +1,21 @@
+bdk:
+  host: develop2.symphony.com
+  bot:
+    username: poll-bot-java
+    privateKey:
+      path: rsa/rsa-private-poll-bot-java.pem
+
+spring:
+  profiles:
+    active: dev
+  jmx:
+    enabled: false
+  main:
+    banner-mode: off
+
+logging:
+  level:
+    com.symphony.bdk: debug
+    org.springframework.data.convert: off
+    org.mongodb.driver.cluster: error
+    org.mongodb.driver.connection: error
