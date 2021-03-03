@@ -4,3 +4,8 @@ rsa/
 target/
 deploy/
 datafeed.id
+
+######################
+# Maven Wrapper
+######################
+.mvn/wrapper/maven-wrapper.jar
