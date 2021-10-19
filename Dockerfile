@@ -12,4 +12,4 @@ WORKDIR /data/symphony
 COPY --from=0 /jvm /jvm
 COPY --from=0 /build/BOOT-INF/lib /lib
 COPY --from=0 /app .
-ENTRYPOINT [ "/jvm/bin/java", "-cp", ".:/lib/*", "com.symphony.ps.pollbot.PollBot", "--spring.config.location=application.properties" ]
+ENTRYPOINT [ "/jvm/bin/java", "-cp", ".:/lib/*", "com.symphony.ps.pollbot.PollBot", "--spring.profiles.active=prod" ]
