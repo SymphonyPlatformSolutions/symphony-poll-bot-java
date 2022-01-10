@@ -36,10 +36,10 @@ jobs:
           context: .
           push: true
           tags: ${{ secrets.DOCKER_REGISTRY }}/${{ secrets.DOCKER_REPOSITORY }}:${{ env.TAG_VERSION }}
-      - uses: google-github-actions/setup-gcloud@master
+      - uses: google-github-actions/auth@v0
         with:
-          project_id: ${{ secrets.GKE_PROJECT }}
-          service_account_key: ${{ secrets.DOCKER_AUTH }}
+          credentials_json: ${{ secrets.DOCKER_AUTH }}
+      - uses: google-github-actions/setup-gcloud@v0
       - run: |
           gcloud container clusters get-credentials ${{ secrets.GKE_CLUSTER }} --zone ${{ secrets.GKE_ZONE }}
           kubectl set image deployments/${{ SECRETS.GKE_DEPLOYMENT }} ${{ SECRETS.GKE_DEPLOYMENT }}=${{ secrets.DOCKER_REGISTRY }}/${{ secrets.DOCKER_REPOSITORY }}:${{ env.TAG_VERSION }}

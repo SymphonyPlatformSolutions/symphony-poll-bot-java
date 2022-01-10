@@ -1,0 +1,16 @@
+spring:
+  profiles.active: dev
+  jmx.enabled: false
+  main.banner-mode: off
+  data.mongodb.uri: mongodb://
+
+bdk:
+  host: develop2.symphony.com
+  bot:
+    username: poll-bot-java
+    privateKey.path: rsa/privatekey.pem
+
+logging.level:
+  org.mongodb.driver: error
+  org.springframework.data: error
+  com.symphony.bdk: warn
