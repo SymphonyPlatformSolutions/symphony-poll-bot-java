@@ -120,7 +120,11 @@ public class CreatePollFormReply extends FormReplyActivity<FormReplyContext> {
                 timeLimit = Integer.parseInt(timeLimitString);
             }
         } catch (NumberFormatException e) {
-            messageService.send(context.getSourceEvent().getStream(), "Time limit should be a number");
+            messageService.send(context.getSourceEvent().getStream(), "Create poll rejected: Expiry should be a number");
+            return;
+        }
+        if (timeLimit < 0 || timeLimit > 1440) {
+            messageService.send(context.getSourceEvent().getStream(), "Create poll rejected: Expiry should be between 0 and 1440");
             return;
         }
 
@@ -173,6 +177,7 @@ public class CreatePollFormReply extends FormReplyActivity<FormReplyContext> {
         }
 
         Map<String, ?> pollCreatedData = Map.of("data", Map.of(
+            "message", "Your poll has been created",
             "question", poll.getQuestionText(),
             "endPollByTimerNote", endPollByTimerNote
         ));

@@ -1,4 +1,4 @@
-<form id="poll-create-form">
+<form id="poll-create-form" multi-submit="no-reset">
     <div style='display:flex'>
         <div style="padding-right:.5rem">
             <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAACXBIWXMAAAsTAAALEwEAmpwYAAABt0lEQVQ4jY3UO2tVQRQF4O8GK8EHSFDDhYgoahXxgVEwoFViJYKg2Gh1GmsLCxshPyBiYadYWcUqik/Qxgc+CoWYIgpiUMgV0UYEHYuZmzs5j3AXDOecvWevWXtmzWmFEEDrmhwjOI5xbMfqFP+FD5jBbcxCKHqFrRLhFtzHNv3hJSZCodMNDGTJ83hfQ/YPi/iOUMrtx6M8kBPu0WsNpjGBzRjCJrRxAveyeUM54aqGVt6kwjIW0kLT+IThsuqBag342xDP8Ts9W/0QDuMw1q5AOIrLYjdLaGp5EE/S+2Ncx1N8zOb8wKVyYa7wHeZV2z2CGym3gMmkbk2dkrIPiW2exknsxoaGLoJ42lOhMLMSYRmjOIej2Kq674uhMNj9yPdwTPTaA9HEXTxLQ1J7BqdwMFO6hHy1s7iFDq42qO1gCodEH1bQZJuxhniOP+nZlw/baTRhRO/OL3NFTvgQX9P7enzGFazL5mzETbzNanNvVk55HHdqFF1Mi1yoye0LhVd1CuEuDmCuFJ+sIXuNnfTI6gjhBXaIv64vNflZ0Zt7xb/3MjQdSldtW7w1P/ENx7ALz5uK/gOYQmfdlkUDLAAAAABJRU5ErkJggg==" />
@@ -38,11 +38,8 @@
             required="true">${data.targetStreamId}</text-field>
     </#if>
 
-    <h6>Time Limit</h6>
-    <div style="display:flex">
-        <text-field name="timeLimit" pattern="\d+" pattern-error-message="Enter a number">0</text-field>
-        <div style="padding:.5rem">minutes</div>
-    </div>
+    <h6>Expiry (in minutes)</h6>
+    <text-field name="timeLimit" pattern="\d+" pattern-error-message="Enter a number" title="0 denotes no limit\nMax 1440 for 24 hours">0</text-field>
 
     <div style='height:.1rem;background:#0098ff;margin:.5rem 0'> </div>
 

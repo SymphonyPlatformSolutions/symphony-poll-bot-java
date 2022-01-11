@@ -6,6 +6,7 @@ import com.symphony.bdk.core.service.session.SessionService;
 import com.symphony.bdk.gen.api.model.StreamType.TypeEnum;
 import com.symphony.bdk.gen.api.model.V4User;
 import com.symphony.devrel.pollbot.model.MessageMetadata;
+import com.symphony.devrel.pollbot.model.Poll;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,8 +34,15 @@ public class PollService {
 
     public boolean userHasActivePoll(long userId) {
         if (dataService.hasActivePoll(userId)) {
-            String msg = String.format("<mention uid=\"%d\" /> You already have an existing active poll. " +
-                "Use <mention uid=\"" + sessionService.getSession().getId() + "\" /> <b>/endpoll</b> to end it before starting a new one", userId);
+            Poll activePoll = dataService.getActivePoll(userId);
+            String endPollByTimerNote = "Click the button below to end the poll now";
+            endPollByTimerNote += (activePoll.getTimeLimit() > 0) ? " or wait for the time limit to expire" : "";
+            Map<String, ?> pollRejectedData = Map.of("data", Map.of(
+                "message", "You already have an existing active poll",
+                "question", activePoll.getQuestionText(),
+                "endPollByTimerNote", endPollByTimerNote
+            ));
+            String msg = getMessage("poll-created", pollRejectedData);
             messageService.send(dataService.getImStreamId(userId), msg);
             log.info("User {} has an existing active poll. Refusing to create a new one.", userId);
             return true;

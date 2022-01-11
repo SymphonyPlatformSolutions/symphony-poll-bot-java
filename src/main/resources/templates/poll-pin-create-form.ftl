@@ -46,11 +46,8 @@
                 </div>
             </#if>
 
-            <h6>Time Limit</h6>
-            <div style="display:flex">
-                <text-field name="timeLimit" pattern="\d+" pattern-error-message="Enter a number">0</text-field>
-                <div style="padding:.5rem">minutes</div>
-            </div>
+            <h6>Expiry (in minutes)</h6>
+            <text-field name="timeLimit" pattern="\d+" pattern-error-message="Enter a number" title="0 denotes no limit\nMax 1440 for 24 hours">0</text-field>
         </body>
         <footer>
             <button name="createPoll" type="action">Create Poll</button>
