@@ -3,8 +3,11 @@ package com.symphony.devrel.pollbot.command;
 import com.symphony.bdk.core.activity.command.CommandContext;
 import com.symphony.bdk.core.service.message.MessageService;
 import com.symphony.bdk.core.service.session.SessionService;
+import com.symphony.bdk.core.service.stream.StreamService;
 import com.symphony.bdk.gen.api.model.StreamType;
 import com.symphony.bdk.gen.api.model.StreamType.TypeEnum;
+import com.symphony.bdk.gen.api.model.V1IMAttributes;
+import com.symphony.bdk.gen.api.model.V3RoomAttributes;
 import com.symphony.bdk.spring.annotation.Slash;
 import com.symphony.devrel.pollbot.model.MessageMetadata;
 import com.symphony.devrel.pollbot.model.PollCreateData;
@@ -15,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import java.util.Map;
+import java.util.Objects;
 
 @Slf4j
 @Component
@@ -24,6 +28,7 @@ public class CreatePollCommand {
     private final PollService pollService;
     private final MessageService messageService;
     private final SessionService session;
+    private final StreamService streamService;
     private static final int DEFAULT_NUMBER_OF_OPTIONS = 6;
 
     @Slash(value="/poll", mentionBot=false)
@@ -50,6 +55,44 @@ public class CreatePollCommand {
         } catch (NumberFormatException e) {
             sendCreatePollForm(context, DEFAULT_NUMBER_OF_OPTIONS, arg);
         }
+    }
+
+    @Slash("/pin")
+    public void getPollFormPinned(CommandContext context) {
+        MessageMetadata meta = pollService.getMeta(context);
+        log.info("Pin poll form on {} requested by {}", meta.getStreamType(), meta.getDisplayName());
+
+        String thisStreamId = meta.getStreamId();
+
+        Map<String, PollData> data = Map.of("data",
+            PollCreateData.builder()
+                .showPersonSelector(false)
+                .hideStreamId(meta.getStreamType() == TypeEnum.ROOM)
+                .count(DEFAULT_NUMBER_OF_OPTIONS)
+                .targetStreamId(meta.getStreamType() == TypeEnum.ROOM ? thisStreamId : "")
+                .build()
+        );
+
+        String message = pollService.getMessage("poll-pin-create-form", data);
+        String pinnedMessageId = messageService.send(thisStreamId, message).getMessageId();
+
+        if (meta.getStreamType() == TypeEnum.IM) {
+            V1IMAttributes attributes = streamService.getInstantMessageInfo(thisStreamId).getV1IMAttributes();
+            attributes.setPinnedMessageId(pinnedMessageId);
+            streamService.updateInstantMessage(thisStreamId, attributes);
+            log.info("Message pinned to IM: {}", thisStreamId);
+        } else {
+            boolean isOwner = streamService.listRoomMembers(thisStreamId).stream()
+                .anyMatch(m -> Objects.equals(m.getId(), session.getSession().getId()) && Boolean.TRUE.equals(m.getOwner()));
+            if (isOwner) {
+                V3RoomAttributes attributes = streamService.getRoomInfo(thisStreamId).getRoomAttributes();
+                attributes.setPinnedMessageId(pinnedMessageId);
+                streamService.updateRoom(thisStreamId, attributes);
+                log.info("Message pinned to room: {}", thisStreamId);
+            }
+        }
+
+        log.info("New pin poll form sent to {}", thisStreamId);
     }
 
     private void sendCreatePollForm(CommandContext context, int numberOfOptions, String targetStreamId) {

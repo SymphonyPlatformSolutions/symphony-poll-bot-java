@@ -11,6 +11,7 @@ import lombok.EqualsAndHashCode;
 @Builder
 public class PollCreateData extends PollData {
     private boolean showPersonSelector;
+    private boolean hideStreamId;
     private String targetStreamId;
     private int count;
 }

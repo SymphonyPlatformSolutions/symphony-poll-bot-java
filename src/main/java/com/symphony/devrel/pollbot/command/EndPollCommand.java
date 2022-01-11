@@ -54,7 +54,7 @@ public class EndPollCommand {
         endPoll(MessageMetadata.builder().userId(userId).build());
     }
 
-    private void endPoll(MessageMetadata meta) {
+    void endPoll(MessageMetadata meta) {
         String displayName = meta.getDisplayName();
         log.info("End poll requested by {}", displayName != null ? displayName : "[Timer]");
 
@@ -121,5 +121,15 @@ public class EndPollCommand {
         dataService.endPoll(poll.getCreator());
         String message = pollService.getMessage(template, data);
         messageService.send(poll.getStreamId(), message);
+
+        if (poll.getStatusMessageId() != null) {
+            String messageId = poll.getStatusMessageId();
+            if (msgUpdateSupported) {
+                String streamId = messageService.getMessage(messageId).getStream().getStreamId();
+                messageService.update(streamId, messageId, Message.builder().content("You have ended the poll").build());
+            } else {
+                messageService.suppressMessage(messageId);
+            }
+        }
     }
 }

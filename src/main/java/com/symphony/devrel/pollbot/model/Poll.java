@@ -23,4 +23,5 @@ public class Poll {
     private List<PollParticipant> participants;
     private List<String> answers;
     private List<String> messageIds;
+    private String statusMessageId;
 }

@@ -34,7 +34,7 @@ public class PollService {
     public boolean userHasActivePoll(long userId) {
         if (dataService.hasActivePoll(userId)) {
             String msg = String.format("<mention uid=\"%d\" /> You already have an existing active poll. " +
-                "Use <mention uid=\"" + sessionService.getSession().getId() + "\"> <b>/endpoll</b> to end it before starting a new one", userId);
+                "Use <mention uid=\"" + sessionService.getSession().getId() + "\" /> <b>/endpoll</b> to end it before starting a new one", userId);
             messageService.send(dataService.getImStreamId(userId), msg);
             log.info("User {} has an existing active poll. Refusing to create a new one.", userId);
             return true;

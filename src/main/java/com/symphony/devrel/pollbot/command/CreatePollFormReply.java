@@ -10,7 +10,6 @@ import com.symphony.bdk.core.service.datafeed.EventException;
 import com.symphony.bdk.core.service.message.MessageService;
 import com.symphony.bdk.core.service.message.model.Message;
 import com.symphony.bdk.core.service.message.util.MessageUtil;
-import com.symphony.bdk.core.service.session.SessionService;
 import com.symphony.bdk.core.service.stream.StreamService;
 import com.symphony.bdk.gen.api.model.V3RoomDetail;
 import com.symphony.bdk.gen.api.model.V4Message;
@@ -35,7 +34,6 @@ public class CreatePollFormReply extends FormReplyActivity<FormReplyContext> {
     private final DataService dataService;
     private final MessageService messageService;
     private final StreamService streamService;
-    private final SessionService sessionService;
     private final EndPollCommand endPollCommand;
 
     @Override
@@ -159,10 +157,7 @@ public class CreatePollFormReply extends FormReplyActivity<FormReplyContext> {
             V4Message response = messageService.send(targetStreamId, message);
             messageIds = List.of(response.getMessageId());
         }
-
-        // Persist poll object to database
         poll.setMessageIds(messageIds);
-        dataService.savePoll(poll);
 
         // Start timer
         String endPollByTimerNote = "";
@@ -174,17 +169,20 @@ public class CreatePollFormReply extends FormReplyActivity<FormReplyContext> {
                 }
             }, 60000L * timeLimit);
 
-            endPollByTimerNote = " or wait " + timeLimit + " minute" + (timeLimit > 1 ? "s" : "");
+            endPollByTimerNote = "This poll will automatically end in " + timeLimit + " minute" + (timeLimit > 1 ? "s" : "");
         }
 
-        messageService.send(
-            dataService.getImStreamId(initiator.getUserId()),
-            String.format(
-                "Your poll has been created. You can use <b><mention uid=\"" + sessionService.getSession().getId() + "\"/> /endpoll</b>%s to end this poll: <i>%s</i>",
-                endPollByTimerNote, poll.getQuestionText()
-            )
-        );
+        Map<String, ?> pollCreatedData = Map.of("data", Map.of(
+            "question", poll.getQuestionText(),
+            "endPollByTimerNote", endPollByTimerNote
+        ));
+        String endPollMessage = pollService.getMessage("poll-created", pollCreatedData);
+        V4Message statusMessage = messageService.send(dataService.getImStreamId(initiator.getUserId()), endPollMessage);
         log.info("New poll by {} creation complete", initiator.getDisplayName());
+
+        // Persist poll object to database
+        poll.setStatusMessageId(statusMessage.getMessageId());
+        dataService.savePoll(poll);
     }
 
     @Override
