@@ -3,21 +3,17 @@ name: Build
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-java@v1
+      - uses: actions/checkout@v3
+      - uses: actions/setup-java@v3
         with:
+          distribution: zulu
           java-version: 17
-      - uses: actions/cache@v1
-        with:
-          path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2
       - name: Derive version
         id: deriveVersion
         run: |
@@ -25,13 +21,12 @@ jobs:
           export TIMESTAMP=`TZ=Asia/Singapore date +'%m%d-%H%M'`
           echo "TAG_VERSION=$MVN_VER-$TIMESTAMP" >> $GITHUB_ENV
       - run: mvn clean compile package
-      - uses: docker/setup-buildx-action@v1
-      - uses: docker/login-action@v1
+      - uses: docker/login-action@v2
         with:
           registry: ${{ secrets.DEV_DOCKER_REGISTRY }}
           username: _json_key
           password: ${{ secrets.DEV_DOCKER_AUTH }}
-      - uses: docker/build-push-action@v2
+      - uses: docker/build-push-action@v3
         with:
           context: .
           push: false
