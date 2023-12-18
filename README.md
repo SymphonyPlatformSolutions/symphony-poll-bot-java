@@ -1,3 +1,5 @@
+[![codecov](https://codecov.io/gh/SymphonyPlatformSolutions/symphony-poll-bot-java/branch/main/graph/badge.svg?token=2FTS2489M3)](https://codecov.io/gh/SymphonyPlatformSolutions/symphony-poll-bot-java)
+
 ## Poll Bot
 This bot uses Symphony Elements to facilitate the creation of polls, firing of poll messages, ending polls and collation of results. 
 

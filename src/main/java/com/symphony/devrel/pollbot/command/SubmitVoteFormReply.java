@@ -80,8 +80,6 @@ public class SubmitVoteFormReply extends FormReplyActivity<FormReplyContext> {
 
     @Override
     protected ActivityInfo info() {
-        return new ActivityInfo()
-            .name("Respond to votes")
-            .type(ActivityType.FORM);
+        return new ActivityInfo().name("Respond to votes").type(ActivityType.FORM);
     }
 }

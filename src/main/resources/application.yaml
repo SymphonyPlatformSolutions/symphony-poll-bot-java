@@ -1,5 +1,4 @@
 spring:
-  profiles.active: dev
   jmx.enabled: false
   main.banner-mode: off
   data.mongodb.uri: mongodb://
@@ -14,3 +13,4 @@ logging.level:
   org.mongodb.driver: error
   org.springframework.data: error
   com.symphony.bdk: warn
+  org.glassfish.jersey.message.internal: error
