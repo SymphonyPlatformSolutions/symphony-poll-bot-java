@@ -36,8 +36,6 @@ public class EndPollFormReply extends FormReplyActivity<FormReplyContext> {
 
     @Override
     protected ActivityInfo info() {
-        return new ActivityInfo()
-            .name("Respond to end poll forms")
-            .type(ActivityType.FORM);
+        return new ActivityInfo().name("Respond to end poll forms").type(ActivityType.FORM);
     }
 }

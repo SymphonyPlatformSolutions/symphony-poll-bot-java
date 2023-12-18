@@ -1,7 +1,6 @@
 package com.symphony.devrel.pollbot.command;
 
 import com.symphony.bdk.core.activity.command.CommandContext;
-import com.symphony.bdk.core.service.health.HealthService;
 import com.symphony.bdk.core.service.message.MessageService;
 import com.symphony.bdk.core.service.message.model.Message;
 import com.symphony.bdk.core.service.session.SessionService;
@@ -12,7 +11,6 @@ import com.symphony.devrel.pollbot.service.PollService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import javax.annotation.PostConstruct;
 import java.util.*;
 
 @Slf4j
@@ -22,20 +20,7 @@ public class EndPollCommand {
     private final PollService pollService;
     private final DataService dataService;
     private final MessageService messageService;
-    private final HealthService healthService;
     private final SessionService session;
-    private boolean msgUpdateSupported;
-
-    @PostConstruct
-    public void init() {
-        String[] versionParts = healthService.getAgentInfo().getVersion().substring(6).split("\\.");
-        int major = Integer.parseInt(versionParts[0]);
-        int minor = Integer.parseInt(versionParts[1]);
-        msgUpdateSupported = major > 20 || (major == 20 && minor >= 13);
-        if (!msgUpdateSupported) {
-            log.warn("Message Update not supported yet on Agent {}.{}", major, minor);
-        }
-    }
 
     @Slash(value="/endpoll", mentionBot=false)
     public void endPollDeprecated(CommandContext context) {
@@ -104,15 +89,10 @@ public class EndPollCommand {
 
         if (poll.getMessageIds() != null) {
             poll.getMessageIds().forEach(messageId -> {
-                if (msgUpdateSupported) {
-                    String streamId = messageService.getMessage(messageId).getStream().getStreamId();
-                    try {
-                        messageService.update(streamId, messageId, Message.builder().content("This poll has ended").build());
-                    } catch (Exception e) {
-                        msgUpdateSupported = false;
-                        messageService.suppressMessage(messageId);
-                    }
-                } else {
+                String streamId = messageService.getMessage(messageId).getStream().getStreamId();
+                try {
+                    messageService.update(streamId, messageId, Message.builder().content("This poll has ended").build());
+                } catch (Exception e) {
                     messageService.suppressMessage(messageId);
                 }
             });
@@ -124,12 +104,8 @@ public class EndPollCommand {
 
         if (poll.getStatusMessageId() != null) {
             String messageId = poll.getStatusMessageId();
-            if (msgUpdateSupported) {
-                String streamId = messageService.getMessage(messageId).getStream().getStreamId();
-                messageService.update(streamId, messageId, Message.builder().content("You have ended the poll").build());
-            } else {
-                messageService.suppressMessage(messageId);
-            }
+            String streamId = messageService.getMessage(messageId).getStream().getStreamId();
+            messageService.update(streamId, messageId, Message.builder().content("You have ended the poll").build());
         }
     }
 }

@@ -1,6 +1,5 @@
 package com.symphony.devrel.pollbot.command;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.symphony.bdk.core.activity.ActivityMatcher;
 import com.symphony.bdk.core.activity.form.FormReplyActivity;
 import com.symphony.bdk.core.activity.form.FormReplyContext;
@@ -20,11 +19,18 @@ import com.symphony.devrel.pollbot.model.PollBlastData;
 import com.symphony.devrel.pollbot.model.PollParticipant;
 import com.symphony.devrel.pollbot.service.DataService;
 import com.symphony.devrel.pollbot.service.PollService;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Timer;
+import java.util.TimerTask;
 
 @Slf4j
 @Component
@@ -45,7 +51,10 @@ public class CreatePollFormReply extends FormReplyActivity<FormReplyContext> {
     protected void onActivity(FormReplyContext context) throws EventException {
         // Reject poll creation if an active one exists
         V4User initiator = context.getInitiator().getUser();
-        if (pollService.userHasActivePoll(initiator.getUserId())) {
+        assert initiator != null;
+        Long userId = initiator.getUserId();
+        assert userId != null;
+        if (pollService.userHasActivePoll(userId)) {
             return;
         }
 
@@ -72,9 +81,11 @@ public class CreatePollFormReply extends FormReplyActivity<FormReplyContext> {
         }
 
         // Validate stream id if provided
-        String targetStreamId = context.getSourceEvent().getStream().getStreamId();
+        String initiatorStreamId = Objects.requireNonNull(context.getSourceEvent().getStream()).getStreamId();
+        assert initiatorStreamId != null;
+        String targetStreamId = initiatorStreamId;
         if (context.getFormValue("targetStreamId") != null) {
-            String testStreamId = escapeStreamId(context.getFormValue("targetStreamId"));
+            String testStreamId = escapeStreamId(Objects.requireNonNull(context.getFormValue("targetStreamId")));
             String rejectMsg = null;
 
             try {
@@ -83,7 +94,7 @@ public class CreatePollFormReply extends FormReplyActivity<FormReplyContext> {
 
                 if (streamService.listRoomMembers(testStreamId) == null) {
                     rejectMsg = "I am not a member in that room";
-                } else if (roomInfo.getRoomAttributes().getReadOnly()) {
+                } else if (Boolean.TRUE.equals(Objects.requireNonNull(roomInfo.getRoomAttributes()).getReadOnly())) {
                     rejectMsg = "Room is read-only";
                 }
             } catch (Exception e) {
@@ -93,7 +104,7 @@ public class CreatePollFormReply extends FormReplyActivity<FormReplyContext> {
 
             if (rejectMsg != null) {
                 messageService.send(
-                    context.getSourceEvent().getStream().getStreamId(),
+                    initiatorStreamId,
                     String.format("<mention uid=\"%d\"/> %s: <b>%s</b>", initiator.getUserId(), rejectMsg, testStreamId)
                 );
                 return;
@@ -116,15 +127,16 @@ public class CreatePollFormReply extends FormReplyActivity<FormReplyContext> {
         int timeLimit = 0;
         try {
             String timeLimitString = context.getFormValue("timeLimit");
+            assert timeLimitString != null;
             if (!timeLimitString.isEmpty()) {
                 timeLimit = Integer.parseInt(timeLimitString);
             }
         } catch (NumberFormatException e) {
-            messageService.send(context.getSourceEvent().getStream(), "Create poll rejected: Expiry should be a number");
+            messageService.send(initiatorStreamId, "Create poll rejected: Expiry should be a number");
             return;
         }
         if (timeLimit < 0 || timeLimit > 1440) {
-            messageService.send(context.getSourceEvent().getStream(), "Create poll rejected: Expiry should be between 0 and 1440");
+            messageService.send(initiatorStreamId, "Create poll rejected: Expiry should be between 0 and 1440");
             return;
         }
 
@@ -159,7 +171,7 @@ public class CreatePollFormReply extends FormReplyActivity<FormReplyContext> {
             messageIds = response.getMessages().stream().map(V4Message::getMessageId).toList();
         } else {
             V4Message response = messageService.send(targetStreamId, message);
-            messageIds = List.of(response.getMessageId());
+            messageIds = List.of(Objects.requireNonNull(response.getMessageId()));
         }
         poll.setMessageIds(messageIds);
 
@@ -192,14 +204,12 @@ public class CreatePollFormReply extends FormReplyActivity<FormReplyContext> {
 
     @Override
     protected ActivityInfo info() {
-        return new ActivityInfo()
-            .name("Respond to poll creation forms")
-            .type(ActivityType.FORM);
+        return new ActivityInfo().name("Respond to poll creation forms").type(ActivityType.FORM);
     }
 
     private String escapeStreamId(String rawStreamId) {
         return rawStreamId.trim()
-            .replaceAll("[=]+$", "")
+            .replaceAll("=+$", "")
             .replaceAll("\\+", "-")
             .replaceAll("/", "_");
     }

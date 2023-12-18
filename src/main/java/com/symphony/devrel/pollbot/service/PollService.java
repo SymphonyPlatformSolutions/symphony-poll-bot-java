@@ -2,7 +2,6 @@ package com.symphony.devrel.pollbot.service;
 
 import com.symphony.bdk.core.activity.command.CommandContext;
 import com.symphony.bdk.core.service.message.MessageService;
-import com.symphony.bdk.core.service.session.SessionService;
 import com.symphony.bdk.gen.api.model.StreamType.TypeEnum;
 import com.symphony.bdk.gen.api.model.V4User;
 import com.symphony.devrel.pollbot.model.MessageMetadata;
@@ -18,7 +17,6 @@ import java.util.Map;
 public class PollService {
     private final DataService dataService;
     private final MessageService messageService;
-    private final SessionService sessionService;
 
     public MessageMetadata getMeta(CommandContext context) {
         V4User user = context.getInitiator().getUser();
