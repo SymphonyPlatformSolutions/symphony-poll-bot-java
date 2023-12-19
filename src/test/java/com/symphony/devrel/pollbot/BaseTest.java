@@ -59,7 +59,7 @@ public class BaseTest {
     @DynamicPropertySource
     @SuppressWarnings("resource")
     public static void setDatasourceProperties(final DynamicPropertyRegistry registry) {
-        MongoDBContainer container = new MongoDBContainer("mongo:5.0.8");
+        MongoDBContainer container = new MongoDBContainer("mongo:6");
         container.start();
         registry.add("spring.data.mongodb.uri", container::getReplicaSetUrl);
     }
