@@ -4,7 +4,7 @@ rsa/
 target/
 deploy/
 datafeed.id
-application-*.y*ml
+application-dev.y*ml
 
 ######################
 # Maven Wrapper

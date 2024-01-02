@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.annotation.DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD;
 import com.symphony.bdk.core.service.message.MessageService;
 import com.symphony.bdk.core.service.message.model.Message;
 import com.symphony.bdk.core.service.stream.StreamService;
@@ -23,19 +24,19 @@ import com.symphony.bdk.test.SymphonyBdkTestUtils;
 import com.symphony.bdk.test.spring.annotation.SymphonyBdkSpringBootTest;
 import com.symphony.devrel.pollbot.repository.PollRepository;
 import com.symphony.devrel.pollbot.repository.PollVoteRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.MongoDBContainer;
-import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.junit.jupiter.Container;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
+@DirtiesContext(classMode = BEFORE_EACH_TEST_METHOD)
 @SymphonyBdkSpringBootTest
-@Testcontainers
-@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
 public class BaseTest {
     @Autowired
     MessageService messages;
@@ -56,12 +57,22 @@ public class BaseTest {
     final V4Stream imStream = new V4Stream().streamType("IM").streamId("my-im");
     final V4Stream roomStream = new V4Stream().streamType("ROOM").streamId("my-room");
 
+    @Container
+    static MongoDBContainer mongodb = new MongoDBContainer("mongo:6").withReuse(true);
+
+    static {
+        mongodb.start();
+    }
+
     @DynamicPropertySource
-    @SuppressWarnings("resource")
     public static void setDatasourceProperties(final DynamicPropertyRegistry registry) {
-        MongoDBContainer container = new MongoDBContainer("mongo:6");
-        container.start();
-        registry.add("spring.data.mongodb.uri", container::getReplicaSetUrl);
+        registry.add("spring.data.mongodb.uri", mongodb::getReplicaSetUrl);
+    }
+
+    @AfterEach
+    void afterEach() {
+        pollRepo.deleteAll();
+        pollVoteRepo.deleteAll();
     }
 
     void mockAllMessageSends() {
